@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import bodyParser from 'body-parser';
 import dotenv from 'dotenv';
 dotenv.config();
 
@@ -7,11 +8,15 @@ import cookieParser from 'cookie-parser';
 import morgan from 'morgan';
 import helmet from 'helmet';
 import dbConnect from './config/dbConnect.js';
+import route from './routes/index.js';
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(cookieParser());
+app.use(bodyParser.json({ type: 'application/*+json' }));
+app.use(bodyParser.urlencoded({ extended: true }));
+
 app.use(morgan()); //Ghi log request đến server
 app.use(
     // Bảo vệ server khỏi các lỗ hổng bảo mật phổ biến
@@ -33,3 +38,5 @@ dbConnect().then(() => {
         console.log('Server is running in ' + port);
     });
 });
+
+route(app);

@@ -2,9 +2,9 @@ import mongoose from 'mongoose';
 
 const staffSchema = mongoose.Schema(
     {
-        fullName: {
+        name: {
             type: String,
-            required: [true, 'Provide full name'],
+            required: [true, 'Provide name'],
         },
         email: {
             type: String,
@@ -22,7 +22,7 @@ const staffSchema = mongoose.Schema(
             type: String,
             default: null,
         },
-        verifyEmail: {
+        isVerifyEmail: {
             type: Boolean,
             default: false,
         },

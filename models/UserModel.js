@@ -2,9 +2,9 @@ import mongoose from 'mongoose';
 
 const userSchema = mongoose.Schema(
     {
-        fullName: {
+        name: {
             type: String,
-            required: [true, 'Provide full name'],
+            required: [true, 'Provide name'],
         },
         email: {
             type: String,
@@ -22,7 +22,7 @@ const userSchema = mongoose.Schema(
             type: String,
             default: null,
         },
-        verifyEmail: {
+        isVerifyEmail: {
             type: Boolean,
             default: false,
         },
@@ -33,7 +33,7 @@ const userSchema = mongoose.Schema(
         status: {
             type: String,
             enum: ['active', 'unactive', 'suspended'],
-            default: '',
+            default: 'active',
         },
         address: [
             {
@@ -53,6 +53,12 @@ const userSchema = mongoose.Schema(
                 ref: 'order',
             },
         ],
+        otp: {
+            type: String,
+        },
+        otpExpires: {
+            type: Date,
+        },
         forgotPasswordOtp: {
             type: String,
             default: null,
