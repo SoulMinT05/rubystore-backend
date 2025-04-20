@@ -1,4 +1,4 @@
-const verifyEmailHtml = (username, otp) => {
+const verifyEmailHtml = (name, otp) => {
     return `
         <!DOCTYPE html>
         <html lang='en'>
@@ -59,11 +59,11 @@ const verifyEmailHtml = (username, otp) => {
                 </div>
                 <div class="content">
                     <p>
-                        Cám ơn bạn đã đăng ký tài khoản ở RubyStore. Hãy dùng mã OTP bên dưới để
+                        Chào ${name}. Cám ơn bạn đã đăng ký tài khoản ở RubyStore. Hãy dùng mã OTP bên dưới để
                         xác minh địa chỉ email của bạn
                     </p>
                     <div class="otp">${otp}</div>
-                    <p>Nếu bạn không phải là người muốn tạo tài khoản, bạn có thể bỏ
+                    <p>Nếu bạn không phải là người thực hiện hành động này, bạn có thể bỏ
                         qua email này
                     </p>
                 </div>
