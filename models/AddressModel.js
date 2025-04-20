@@ -32,7 +32,7 @@ const addressSchema = mongoose.Schema(
         },
         userId: {
             type: mongoose.Schema.ObjectId,
-            default: '',
+            ref: 'user',
         },
     },
     {

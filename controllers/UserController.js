@@ -1,7 +1,6 @@
 import UserModel from '../models/UserModel.js';
 import bcryptjs from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import sendEmail from '../config/emailService.js';
 import sendAccountConfirmationEmail from '../config/sendEmail.js';
 import verifyEmailHtml from '../utils/verifyEmailHtml.js';
 import generateAccessToken from '../utils/generateAccessToken.js';
