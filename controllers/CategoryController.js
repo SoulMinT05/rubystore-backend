@@ -126,4 +126,167 @@ const getSubCategoriesCount = async (req, res) => {
         });
     }
 };
-export { createCategory, getCategories, getCategoriesCount, getSubCategoriesCount };
+
+const getDetailsCategory = async (req, res) => {
+    try {
+        const category = await CategoryModel.findById(req.params.id);
+        if (!category) {
+            return res.status(400).json({
+                success: false,
+                message: 'Không tìm thấy danh mục với id này',
+            });
+        }
+        return res.status(200).json({
+            success: true,
+            category,
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: error.message || error,
+        });
+    }
+};
+
+const removeImageFromCloudinary = async (req, res) => {
+    try {
+        const imgUrl = req.query.img;
+        const urlArr = imgUrl.split('/');
+        const image = urlArr[urlArr.length - 1];
+        const imageName = image.split('.')[0];
+
+        if (imageName) {
+            const result = await cloudinary.uploader.destroy(imageName);
+            if (result) {
+                return res.status(200).json({
+                    success: true,
+                    message: 'Xoá ảnh thành công',
+                });
+            }
+        }
+    } catch (error) {
+        return res.status(500).json({
+            message: error.message || error,
+            success: false,
+        });
+    }
+};
+
+const deleteCategory = async (req, res) => {
+    try {
+        const category = await CategoryModel.findById(req.params.id);
+        const images = category.images;
+
+        for (img of images) {
+            const imgUrl = img;
+            const urlArr = imgUrl.split('/');
+            const image = urlArr[urlArr.length - 1];
+            const imageName = image.split('.')[0];
+
+            if (imageName) {
+                await cloudinary.uploader.destroy(imageName);
+            }
+        }
+        const subCategory = await CategoryModel.find({
+            parentId: req.params.id,
+        });
+        for (let i = 0; subCategory.length; i++) {
+            const thirdSubCaterogy = await CategoryModel.find({
+                parentId: subCategory[i]._id,
+            });
+            for (let i = 0; thirdSubCaterogy.length; i++) {
+                await CategoryModel.findByIdAndDelete(thirdSubCaterogy[i]._id);
+            }
+            await CategoryModel.findByIdAndDelete(subCategory[i]._id);
+        }
+
+        const deletedCat = await CategoryModel.findByIdAndDelete(req.params.id);
+        if (!deletedCat) {
+            return res.status(400).json({
+                success: false,
+                message: 'Danh mục không tồn tại',
+            });
+        }
+        return res.status(200).json({
+            success: true,
+            message: 'Xoá danh mục thành công',
+        });
+    } catch (error) {
+        return res.status(500).json({
+            message: error.message || error,
+            success: false,
+        });
+    }
+};
+
+const updateCategory = async (req, res) => {
+    try {
+        const category = await CategoryModel.findByIdAndUpdate(
+            req.params.id,
+            {
+                name: req.body.name,
+                parentId: req.body.parentId,
+                parentCategoryName: req.body.parentCategoryName,
+            },
+            {
+                new: true,
+            },
+        );
+        if (!category) {
+            return res.status(400).json({
+                success: false,
+                message: 'Không tìm thấy danh mục',
+            });
+        }
+
+        // --- Xoá ảnh cũ nếu có deletedImages ---
+        const deletedImages = req.body.deletedImages || []; // array các URL cần xoá
+
+        if (deletedImages.length > 0) {
+            category.images = category.images.filter((img) => !deletedImages.includes(img));
+
+            // Xoá ảnh khỏi cloudinary
+            for (const url of deletedImages) {
+                const urlArr = url.split('/');
+                const imageWithExt = urlArr[urlArr.length - 1];
+                const publicId = imageWithExt.split('.')[0];
+
+                if (publicId) {
+                    await cloudinary.uploader.destroy(publicId);
+                }
+            }
+        }
+
+        // --- Thêm ảnh mới nếu có ---
+        const newImages = req.files?.map((file) => file.path) || [];
+        category.images = [...category.images, ...newImages];
+
+        // --- Cập nhật tên và danh mục cha ---
+        category.name = req.body.name || category.name;
+        category.parentId = req.body.parentId || null;
+        category.parentCategoryName = req.body.parentCategoryName || '';
+
+        await category.save();
+
+        return res.status(200).json({
+            success: true,
+            message: 'Cập nhật danh mục thành công',
+        });
+    } catch (error) {
+        return res.status(500).json({
+            message: error.message || error,
+            success: false,
+        });
+    }
+};
+
+export {
+    createCategory,
+    getCategories,
+    getCategoriesCount,
+    getSubCategoriesCount,
+    getDetailsCategory,
+    removeImageFromCloudinary,
+    deleteCategory,
+    updateCategory,
+};
