@@ -517,6 +517,158 @@ const getUserDetails = async (req, res) => {
         });
     }
 };
+
+// CART
+const addToCart = async (req, res) => {
+    try {
+        const userId = req.user._id;
+        const { productId } = req.body;
+
+        if (!productId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Thiếu productId',
+            });
+        }
+
+        const user = await UserModel.findById(userId);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy người dùng',
+            });
+        }
+
+        const cartItemIndex = user.shoppingCart.findIndex((item) => item.product.toString() === productId);
+
+        let message = '';
+        if (cartItemIndex !== -1) {
+            // Tăng số lượng nếu sản phẩm đã có trong giỏ
+            user.shoppingCart[cartItemIndex].quantity += 1;
+            message = 'Tăng số lượng sản phẩm trong giỏ hàng';
+        } else {
+            // Thêm mới sản phẩm nếu chưa có
+            user.shoppingCart.push({
+                product: productId,
+                quantity: 1,
+            });
+            message = 'Thêm sản phẩm vào giỏ hàng thành công';
+        }
+
+        await user.save();
+
+        return res.status(200).json({
+            success: true,
+            shoppingCart: user.shoppingCart,
+            message,
+        });
+    } catch (error) {
+        console.error('Lỗi addToCart:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Lỗi server: ' + error.message,
+        });
+    }
+};
+
+const decreaseQuantityCart = async (req, res) => {
+    try {
+        const userId = req.user._id;
+        const { productId } = req.body;
+
+        const user = await UserModel.findById(userId);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy người dùng',
+            });
+        }
+
+        const index = user.shoppingCart.findIndex((item) => item.product.toString() === productId);
+        if (index === -1) {
+            return res.status(404).json({
+                success: false,
+                message: 'Sản phẩm không tồn tại trong giỏ hàng',
+            });
+        }
+
+        if (user.shoppingCart[index].quantity > 1) {
+            user.shoppingCart[index].quantity -= 1;
+        } else {
+            // Nếu quantity = 1 => xóa khỏi giỏ
+            user.shoppingCart.splice(index, 1);
+        }
+
+        await user.save();
+
+        return res.status(200).json({
+            success: true,
+            shoppingCart: user.shoppingCart,
+            message: 'Giảm số lượng sản phẩm giỏ hàng',
+        });
+    } catch (error) {
+        console.error('Lỗi decreaseQuantityCart:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Lỗi server: ' + error.message,
+        });
+    }
+};
+
+const removeProductCart = async (req, res) => {
+    try {
+        const userId = req.user._id;
+
+        const { productId } = req.body;
+        if (!productId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Thiếu productId',
+            });
+        }
+
+        const updatedUser = await UserModel.findByIdAndUpdate(
+            userId,
+            {
+                $pull: {
+                    shoppingCart: { product: productId },
+                },
+            },
+            { new: true },
+        );
+
+        return res.status(200).json({
+            success: true,
+            message: 'Xoá sản phẩm khỏi giỏ hàng',
+            cart: updatedUser.shoppingCart,
+        });
+    } catch (error) {
+        console.error('Lỗi khi xoá sản phẩm khỏi giỏ hàng:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Lỗi server: ' + error.message,
+        });
+    }
+};
+
+const getCart = async (req, res) => {
+    try {
+        const userId = req.user._id;
+        const user = await UserModel.findById(userId).select('shoppingCart').populate({
+            path: 'shoppingCart.product',
+        });
+        return res.status(200).json({
+            success: true,
+            cart: user,
+        });
+    } catch (error) {
+        return res.status(500).json({
+            message: error.message || error,
+            success: false,
+        });
+    }
+};
+
 export {
     register,
     verifyEmail,
@@ -530,4 +682,9 @@ export {
     resetPassword,
     refreshToken,
     getUserDetails,
+    // cart
+    addToCart,
+    decreaseQuantityCart,
+    removeProductCart,
+    getCart,
 };

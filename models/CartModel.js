@@ -2,22 +2,36 @@ import mongoose from 'mongoose';
 
 const cartSchema = mongoose.Schema(
     {
-        productId: [
-            {
-                type: mongoose.Schema.ObjectId,
-                ref: 'product',
-            },
-        ],
+        // productId: [
+        //     {
+        //         type: mongoose.Schema.ObjectId,
+        //         ref: 'product',
+        //     },
+        // ],
         userId: [
             {
                 type: mongoose.Schema.ObjectId,
                 ref: 'user',
             },
         ],
-        quantity: {
-            type: Number,
-            default: 1,
-        },
+        // quantity: {
+        //     type: Number,
+        //     default: 1,
+        // },
+        shoppingCart: [
+            {
+                productId: [
+                    {
+                        type: mongoose.Schema.ObjectId,
+                        ref: 'product',
+                    },
+                ],
+                quantity: {
+                    type: Number,
+                    default: 1,
+                },
+            },
+        ],
     },
     {
         timestamps: true,

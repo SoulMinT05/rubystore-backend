@@ -13,6 +13,10 @@ import {
     resetPassword,
     refreshToken,
     getUserDetails,
+    addToCart,
+    decreaseQuantityCart,
+    removeProductCart,
+    getCart,
 } from '../controllers/UserController.js';
 import { verifyAccessToken } from '../ middlewares/verifyToken.js';
 import upload from '../ middlewares/multer.js';
@@ -31,5 +35,11 @@ userRouter.post('/verify-forgot-password', verifyForgotPasswordOtp);
 userRouter.post('/reset-password', resetPassword);
 userRouter.post('/reset-password', refreshToken);
 userRouter.get('/user-details', verifyAccessToken, getUserDetails);
+
+// CART
+userRouter.post('/addToCart', verifyAccessToken, addToCart);
+userRouter.post('/decreaseQuantityCart', verifyAccessToken, decreaseQuantityCart);
+userRouter.post('/removeProductCart', verifyAccessToken, removeProductCart);
+userRouter.get('/', verifyAccessToken, getCart);
 
 export default userRouter;
