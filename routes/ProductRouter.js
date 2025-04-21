@@ -2,7 +2,8 @@ import { Router } from 'express';
 
 import {
     createProduct,
-    getProducts,
+    getProductsAdmin,
+    getProductsUser,
     getProductsByCategoryId,
     getProductsByCategoryName,
     getProductsBySubCategoryId,
@@ -11,6 +12,11 @@ import {
     getProductsByThirdSubCategoryName,
     getProductsByPrice,
     getProductsByRating,
+    getProductsCount,
+    getProductsByFeature,
+    deleteProduct,
+    getDetailsProduct,
+    updateProduct,
 } from '../controllers/ProductController.js';
 import { verifyAccessToken } from '../ middlewares/verifyToken.js';
 import upload from '../ middlewares/multer.js';
@@ -22,7 +28,8 @@ productRouter.get('/all-products-sub-category-id/:id', getProductsBySubCategoryI
 productRouter.get('/all-products-third-sub-category-id/:id', getProductsByThirdSubCategoryId);
 
 productRouter.post('/create', verifyAccessToken, upload.array('images'), createProduct);
-productRouter.get('/all-products', getProducts);
+productRouter.get('/all-products-admin', getProductsAdmin);
+productRouter.get('/all-products-user', getProductsUser);
 
 productRouter.get('/all-products-category-name', getProductsByCategoryName);
 productRouter.get('/all-products-sub-category-name', getProductsBySubCategoryName);
@@ -30,5 +37,10 @@ productRouter.get('/all-products-third-sub-category-name', getProductsByThirdSub
 
 productRouter.get('/all-products-price', getProductsByPrice);
 productRouter.get('/all-products-rating', getProductsByRating);
+productRouter.get('/count', getProductsCount);
+productRouter.get('/feature', getProductsByFeature);
+productRouter.delete('/:id', verifyAccessToken, upload.array('images'), deleteProduct);
+productRouter.get('/:id', getDetailsProduct);
+productRouter.put('/:id', verifyAccessToken, upload.array('images'), updateProduct);
 
 export default productRouter;

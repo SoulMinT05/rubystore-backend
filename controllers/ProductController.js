@@ -86,7 +86,7 @@ const createProduct = async (req, res) => {
     }
 };
 
-const getProducts = async (req, res) => {
+const getProductsAdmin = async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
         const perPage = parseInt(req.query.perPage);
@@ -126,11 +126,52 @@ const getProducts = async (req, res) => {
     }
 };
 
+const getProductsUser = async (req, res) => {
+    try {
+        const page = parseInt(req.query.page) || 1;
+        const perPage = parseInt(req.query.perPage);
+        const totalProducts = await ProductModel.countDocuments({ isPublished: true });
+        const totalPages = Math.ceil(totalProducts / perPage);
+
+        if (page > totalPages) {
+            return res.status(404).json({
+                success: false,
+                message: 'Trang không tìm thấy',
+            });
+        }
+
+        const products = await ProductModel.find({ isPublished: true })
+            .populate('category')
+            .skip((page - 1) * perPage)
+            .limit(perPage)
+            .exec();
+
+        if (!products) {
+            return res.status(500).json({
+                success: false,
+                message: 'Không tìm thấy sản phẩm',
+            });
+        }
+        return res.status(200).json({
+            success: true,
+            products,
+            totalPages,
+            page,
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: error.message || error,
+        });
+    }
+};
+
 const getProductsByCategoryId = async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
         const perPage = parseInt(req.query.perPage) || 10000;
         const totalProducts = await ProductModel.countDocuments({
+            isPublished: true,
             categoryId: req.params.id,
         });
         const totalPages = Math.ceil(totalProducts / perPage);
@@ -143,6 +184,7 @@ const getProductsByCategoryId = async (req, res) => {
         }
 
         const products = await ProductModel.find({
+            isPublished: true,
             categoryId: req.params.id,
         })
             .populate('category')
@@ -175,6 +217,7 @@ const getProductsByCategoryName = async (req, res) => {
         const page = parseInt(req.query.page) || 1;
         const perPage = parseInt(req.query.perPage) || 10000;
         const totalProducts = await ProductModel.countDocuments({
+            isPublished: true,
             categoryName: req.query.categoryName,
         });
         const totalPages = Math.ceil(totalProducts / perPage);
@@ -187,6 +230,7 @@ const getProductsByCategoryName = async (req, res) => {
         }
 
         const products = await ProductModel.find({
+            isPublished: true,
             categoryName: req.query.categoryName,
         })
             .populate('category')
@@ -219,6 +263,7 @@ const getProductsBySubCategoryId = async (req, res) => {
         const page = parseInt(req.query.page) || 1;
         const perPage = parseInt(req.query.perPage) || 10000;
         const totalProducts = await ProductModel.countDocuments({
+            isPublished: true,
             subCategoryId: req.params.id,
         });
         const totalPages = Math.ceil(totalProducts / perPage);
@@ -231,6 +276,7 @@ const getProductsBySubCategoryId = async (req, res) => {
         }
 
         const products = await ProductModel.find({
+            isPublished: true,
             subCategoryId: req.params.id,
         })
             .populate('category')
@@ -263,6 +309,7 @@ const getProductsBySubCategoryName = async (req, res) => {
         const page = parseInt(req.query.page) || 1;
         const perPage = parseInt(req.query.perPage) || 10000;
         const totalProducts = await ProductModel.countDocuments({
+            isPublished: true,
             subCategoryName: req.query.subCategoryName,
         });
         const totalPages = Math.ceil(totalProducts / perPage);
@@ -275,6 +322,7 @@ const getProductsBySubCategoryName = async (req, res) => {
         }
 
         const products = await ProductModel.find({
+            isPublished: true,
             subCategoryName: req.query.subCategoryName,
         })
             .populate('category')
@@ -307,6 +355,7 @@ const getProductsByThirdSubCategoryId = async (req, res) => {
         const page = parseInt(req.query.page) || 1;
         const perPage = parseInt(req.query.perPage) || 10000;
         const totalProducts = await ProductModel.countDocuments({
+            isPublished: true,
             thirdSubCategoryId: req.params.id,
         });
         const totalPages = Math.ceil(totalProducts / perPage);
@@ -319,6 +368,7 @@ const getProductsByThirdSubCategoryId = async (req, res) => {
         }
 
         const products = await ProductModel.find({
+            isPublished: true,
             thirdSubCategoryId: req.params.id,
         })
             .populate('category')
@@ -351,6 +401,7 @@ const getProductsByThirdSubCategoryName = async (req, res) => {
         const page = parseInt(req.query.page) || 1;
         const perPage = parseInt(req.query.perPage) || 10000;
         const totalProducts = await ProductModel.countDocuments({
+            isPublished: true,
             thirdSubCategoryName: req.query.thirdSubCategoryName,
         });
         const totalPages = Math.ceil(totalProducts / perPage);
@@ -363,6 +414,7 @@ const getProductsByThirdSubCategoryName = async (req, res) => {
         }
 
         const products = await ProductModel.find({
+            isPublished: true,
             thirdSubCategoryName: req.query.thirdSubCategoryName,
         })
             .populate('category')
@@ -396,6 +448,7 @@ const getProductsByPrice = async (req, res) => {
 
         if (req.query.categoryId !== '' && req.query.categoryId !== undefined) {
             const productListArr = await ProductModel.find({
+                isPublished: true,
                 categoryId: req.query.categoryId,
             }).populate('category');
 
@@ -404,6 +457,7 @@ const getProductsByPrice = async (req, res) => {
 
         if (req.query.subCategoryId !== '' && req.query.subCategoryId !== undefined) {
             const productListArr = await ProductModel.find({
+                isPublished: true,
                 subCategoryId: req.query.subCategoryId,
             }).populate('category');
 
@@ -412,6 +466,7 @@ const getProductsByPrice = async (req, res) => {
 
         if (req.query.thirdSubCategoryId !== '' && req.query.thirdSubCategoryId !== undefined) {
             const productListArr = await ProductModel.find({
+                isPublished: true,
                 thirdSubCategoryId: req.query.thirdSubCategoryId,
             }).populate('category');
 
@@ -442,6 +497,7 @@ const getProductsByRating = async (req, res) => {
         const perPage = parseInt(req.query.perPage) || 10000;
 
         const filterQuery = {
+            isPublished: true,
             rating: req.query.rating,
         };
         // Ưu tiên category theo thứ tự: categoryId > subCategoryId > thirdSubCategoryId
@@ -468,6 +524,7 @@ const getProductsByRating = async (req, res) => {
         let products = [];
         if (req.query.categoryId !== undefined) {
             products = await ProductModel.find({
+                isPublished: true,
                 rating: req.query.rating,
                 categoryId: req.query.categoryId,
             })
@@ -479,6 +536,7 @@ const getProductsByRating = async (req, res) => {
 
         if (req.query.subCategoryId !== undefined) {
             products = await ProductModel.find({
+                isPublished: true,
                 rating: req.query.rating,
                 subCategoryId: req.query.subCategoryId,
             })
@@ -490,6 +548,7 @@ const getProductsByRating = async (req, res) => {
 
         if (req.query.thirdSubCategoryId !== undefined) {
             products = await ProductModel.find({
+                isPublished: true,
                 rating: req.query.rating,
                 thirdSubCategoryId: req.query.thirdSubCategoryId,
             })
@@ -519,9 +578,215 @@ const getProductsByRating = async (req, res) => {
     }
 };
 
+const getProductsCount = async (req, res) => {
+    try {
+        const productsCount = await ProductModel.countDocuments({
+            isPublished: true,
+        });
+        if (!productsCount) {
+            return res.status(500).json({
+                success: false,
+                message: 'Không tìm thấy sản phẩm',
+            });
+        }
+        return res.status(200).json({
+            success: true,
+            productsCount,
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: error.message || error,
+        });
+    }
+};
+
+const getProductsByFeature = async (req, res) => {
+    try {
+        const products = await ProductModel.find({
+            isFeatured: true,
+        }).populate('category');
+
+        if (!products) {
+            return res.status(500).json({
+                success: false,
+                message: 'Không tìm thấy sản phẩm',
+            });
+        }
+        return res.status(200).json({
+            success: true,
+            products,
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: error.message || error,
+        });
+    }
+};
+
+const deleteProduct = async (req, res) => {
+    try {
+        const product = await ProductModel.findById(req.params.id).populate('category');
+        if (!product) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy sản phẩm',
+            });
+        }
+        const images = product.images;
+        for (img of images) {
+            const imgUrl = img;
+            const urlArr = imgUrl.split('/');
+            const image = urlArr[urlArr.length - 1];
+            const imageName = image.split('.')[0];
+
+            if (imageName) {
+                await cloudinary.uploader.destroy(imageName);
+            }
+        }
+
+        const deletedProduct = await ProductModel.findByIdAndDelete(req.params.id);
+        if (!deletedProduct) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy sản phẩm để xoá',
+            });
+        }
+        return res.status(200).json({
+            success: true,
+            deletedProduct,
+            message: 'Xoá sản phẩm thành công',
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: error.message || error,
+        });
+    }
+};
+
+const getDetailsProduct = async (req, res) => {
+    try {
+        const product = await ProductModel.findById(req.params.id).populate('category');
+        if (!product) {
+            return res.status(400).json({
+                success: false,
+                message: 'Không tìm thấy sản phẩm với id này',
+            });
+        }
+        return res.status(200).json({
+            success: true,
+            product,
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: error.message || error,
+        });
+    }
+};
+
+const removeImageFromCloudinary = async (req, res) => {
+    try {
+        const imgUrl = req.query.img;
+        const urlArr = imgUrl.split('/');
+        const image = urlArr[urlArr.length - 1];
+        const imageName = image.split('.')[0];
+
+        if (imageName) {
+            const result = await cloudinary.uploader.destroy(imageName);
+            if (result) {
+                return res.status(200).json({
+                    success: true,
+                    message: 'Xoá ảnh thành công',
+                });
+            }
+        }
+    } catch (error) {
+        return res.status(500).json({
+            message: error.message || error,
+            success: false,
+        });
+    }
+};
+
+const updateProduct = async (req, res) => {
+    try {
+        const product = await ProductModel.findByIdAndUpdate(
+            req.params.id,
+            {
+                name: req.body.name,
+                description: req.body.description,
+                brand: req.body.brand,
+                price: req.body.price,
+                oldPrice: req.body.oldPrice,
+                categoryName: req.body.categoryName,
+                categoryId: req.body.categoryId,
+                category: req.body.category,
+                subCategoryId: req.body.subCategoryId,
+                subCategory: req.body.subCategory,
+                thirdSubCategoryId: req.body.thirdSubCategoryId,
+                thirdSubCategory: req.body.thirdSubCategory,
+                countInStock: req.body.countInStock,
+                rating: req.body.rating,
+                isFeatured: req.body.isFeatured,
+                isPublished: req.body.isPublished,
+                discount: req.body.discount,
+                productRam: req.body.productRam,
+                size: req.body.size,
+                productWeight: req.body.productWeight,
+            },
+            { new: true },
+        );
+
+        if (!product) {
+            return res.status(400).json({
+                success: false,
+                message: 'Không tìm thấy sản phẩm',
+            });
+        }
+
+        // --- Xoá ảnh cũ nếu có deletedImages ---
+        const deletedImages = req.body.deletedImages || []; // array các URL cần xoá
+
+        if (deletedImages.length > 0) {
+            product.images = product.images.filter((img) => !deletedImages.includes(img));
+
+            // Xoá ảnh khỏi cloudinary
+            for (const url of deletedImages) {
+                const urlArr = url.split('/');
+                const imageWithExt = urlArr[urlArr.length - 1];
+                const publicId = imageWithExt.split('.')[0];
+
+                if (publicId) {
+                    await cloudinary.uploader.destroy(publicId);
+                }
+            }
+        }
+
+        // --- Thêm ảnh mới nếu có ---
+        const newImages = req.files?.map((file) => file.path) || [];
+        product.images = [...product.images, ...newImages];
+
+        await product.save();
+
+        return res.status(200).json({
+            success: true,
+            message: 'Cập nhật sản phẩm thành công',
+        });
+    } catch (error) {
+        return res.status(500).json({
+            message: error.message || error,
+            success: false,
+        });
+    }
+};
+
 export {
     createProduct,
-    getProducts,
+    getProductsAdmin,
+    getProductsUser,
     getProductsByCategoryId,
     getProductsByCategoryName,
     getProductsBySubCategoryId,
@@ -530,4 +795,10 @@ export {
     getProductsByThirdSubCategoryName,
     getProductsByPrice,
     getProductsByRating,
+    getProductsCount,
+    getProductsByFeature,
+    deleteProduct,
+    getDetailsProduct,
+    removeImageFromCloudinary,
+    updateProduct,
 };
