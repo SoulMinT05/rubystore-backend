@@ -51,5 +51,5 @@ const orderSchema = mongoose.Schema(
     },
 );
 
-const OrderModel = mongoose.model('Order', orderSchema);
+const OrderModel = mongoose.model('order', orderSchema);
 export default OrderModel;

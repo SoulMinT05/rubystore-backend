@@ -72,5 +72,5 @@ const staffSchema = mongoose.Schema(
     },
 );
 
-const StaffModel = mongoose.model('Staff', staffSchema);
+const StaffModel = mongoose.model('staff', staffSchema);
 export default StaffModel;
