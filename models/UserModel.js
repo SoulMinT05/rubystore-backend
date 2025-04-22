@@ -45,6 +45,29 @@ const userSchema = mongoose.Schema(
                 ref: 'address',
             },
         ],
+        wishlist: [
+            {
+                product: {
+                    type: mongoose.Schema.Types.ObjectId,
+                    ref: 'product',
+                },
+                productName: {
+                    type: String,
+                    required: true,
+                },
+                image: String,
+                rating: Number,
+                price: Number,
+                oldPrice: Number,
+                brand: String,
+                discount: Number,
+                addedAt: {
+                    type: Date,
+                    default: Date.now,
+                },
+            },
+        ],
+
         shoppingCart: [
             {
                 product: {

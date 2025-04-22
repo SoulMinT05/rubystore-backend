@@ -1,4 +1,6 @@
 import UserModel from '../models/UserModel.js';
+import ProductModel from '../models/ProductModel.js';
+
 import bcryptjs from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import sendAccountConfirmationEmail from '../config/sendEmail.js';
@@ -669,6 +671,113 @@ const getCart = async (req, res) => {
     }
 };
 
+// WISHLIST
+const addToWishlist = async (req, res) => {
+    try {
+        const userId = req.user._id;
+        const { productId } = req.body;
+
+        if (!productId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Thiếu ID sản phẩm!',
+            });
+        }
+
+        const user = await UserModel.findById(userId);
+
+        const alreadyExists = user.wishlist.some((item) => item.product.toString() === productId);
+        console.log('alreadyExists: ', alreadyExists);
+        if (alreadyExists) {
+            return res.status(400).json({
+                success: false,
+                message: 'Sản phẩm đã có trong wishlist!',
+            });
+        }
+
+        const product = await ProductModel.findById(productId);
+        if (!product) {
+            return res.status(404).json({
+                success: false,
+                message: 'Sản phẩm không tồn tại!',
+            });
+        }
+
+        const wishlistItem = {
+            product: product._id,
+            productName: product.name,
+            image: product.image || '',
+            rating: product.rating || 0,
+            price: product.price,
+            oldPrice: product.oldPrice,
+            brand: product.brand,
+            discount: product.discount || 0,
+        };
+
+        user.wishlist.push(wishlistItem);
+        await user.save();
+
+        return res.status(200).json({
+            success: true,
+            message: 'Đã thêm vào wishlist!',
+            wishlist: wishlistItem,
+        });
+    } catch (error) {
+        console.error('Add to wishlist error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Lỗi máy chủ!',
+        });
+    }
+};
+
+const removeFromWishlist = async (req, res) => {
+    try {
+        const userId = req.user._id;
+        const { productId } = req.params;
+
+        const updatedUser = await UserModel.findByIdAndUpdate(
+            userId,
+            {
+                $pull: {
+                    wishlist: { product: productId },
+                },
+            },
+            { new: true },
+        );
+
+        return res.status(200).json({
+            success: true,
+            message: 'Đã xoá sản phẩm khỏi wishlist!',
+            wishlist: updatedUser.wishlist,
+        });
+    } catch (error) {
+        console.error('Remove wishlist error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Lỗi máy chủ!',
+        });
+    }
+};
+
+const getWishlist = async (req, res) => {
+    try {
+        const userId = req.user._id;
+        const user = await UserModel.findById(userId);
+
+        return res.status(200).json({
+            success: true,
+            wishlist: user.wishlist || [],
+        });
+    } catch (error) {
+        console.error('Get wishlist error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Lỗi máy chủ!',
+        });
+    }
+};
+
 export {
     register,
     verifyEmail,
@@ -687,4 +796,8 @@ export {
     decreaseQuantityCart,
     removeProductCart,
     getCart,
+    // wishlist
+    addToWishlist,
+    removeFromWishlist,
+    getWishlist,
 };

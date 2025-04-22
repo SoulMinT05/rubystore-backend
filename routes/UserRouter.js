@@ -13,10 +13,15 @@ import {
     resetPassword,
     refreshToken,
     getUserDetails,
+    // CART
     addToCart,
     decreaseQuantityCart,
     removeProductCart,
     getCart,
+    // WISHLIST
+    addToWishlist,
+    removeFromWishlist,
+    getWishlist,
 } from '../controllers/UserController.js';
 import { verifyAccessToken } from '../ middlewares/verifyToken.js';
 import upload from '../ middlewares/multer.js';
@@ -33,7 +38,7 @@ userRouter.put('/update-info', verifyAccessToken, updateInfoUser);
 userRouter.post('/forgot-password', forgotPassword);
 userRouter.post('/verify-forgot-password', verifyForgotPasswordOtp);
 userRouter.post('/reset-password', resetPassword);
-userRouter.post('/reset-password', refreshToken);
+userRouter.post('/refreshToken', refreshToken);
 userRouter.get('/user-details', verifyAccessToken, getUserDetails);
 
 // CART
@@ -41,5 +46,10 @@ userRouter.post('/addToCart', verifyAccessToken, addToCart);
 userRouter.post('/decreaseQuantityCart', verifyAccessToken, decreaseQuantityCart);
 userRouter.post('/removeProductCart', verifyAccessToken, removeProductCart);
 userRouter.get('/', verifyAccessToken, getCart);
+
+// WISHLIST
+userRouter.post('/addToWishlist', verifyAccessToken, addToWishlist);
+userRouter.delete('/removeFromWishlist/:productId', verifyAccessToken, removeFromWishlist);
+userRouter.get('/getWishlist', verifyAccessToken, getWishlist);
 
 export default userRouter;
