@@ -204,13 +204,19 @@ const login = async (req, res) => {
             lastLoginDate: new Date(),
         });
 
-        const cookiesOption = {
-            // httpOnly: true,
-            secure: true,
-            sameSite: 'none',
+        const cookiesOptionAccessToken = {
+            secure: true, // Dùng HTTPS
+            sameSite: 'Strict',
+            maxAge: 10 * 60 * 1000, // 10 phút (đổi theo bạn config expiresIn bên JW
         };
-        res.cookie('accessToken', accessToken, cookiesOption);
-        res.cookie('refreshToken', refreshToken, cookiesOption);
+        const cookiesOptionRefreshToken = {
+            httpOnly: true,
+            secure: true,
+            sameSite: 'Strict',
+            maxAge: 7 * 24 * 60 * 60 * 1000, // 7 ngày
+        };
+        res.cookie('accessToken', accessToken, cookiesOptionAccessToken);
+        res.cookie('refreshToken', refreshToken, cookiesOptionRefreshToken);
 
         return res.status(200).json({
             success: true,
@@ -239,7 +245,7 @@ const logout = async (req, res) => {
         const cookiesOption = {
             httpOnly: true,
             secure: true,
-            sameSite: 'none',
+            sameSite: 'Strict',
         };
         res.clearCookie('accessToken', cookiesOption);
         res.clearCookie('refreshToken', cookiesOption);
@@ -494,10 +500,32 @@ const resetPassword = async (req, res) => {
     }
 };
 
+const getUserDetails = async (req, res) => {
+    try {
+        const { _id } = req.user;
+        const user = await UserModel.findById(_id).select('-password -refreshToken');
+        if (!user) {
+            return res.status(400).json({
+                success: false,
+                message: 'Không tìm thấy người dùng',
+            });
+        }
+        return res.status(200).json({
+            success: true,
+            message: 'Thông tin người dùng',
+            user,
+        });
+    } catch (error) {
+        return res.status(500).json({
+            message: error.message || error,
+            success: false,
+        });
+    }
+};
+
 const refreshToken = async (req, res) => {
     try {
-        // const refreshToken = req.body.token || req.cookies.refreshToken || req?.headers?.authorization?.split(' ')[1];
-        const refreshToken = req.body.token;
+        const refreshToken = req.cookies.refreshToken || req?.headers?.authorization?.split(' ')[1];
         if (!refreshToken) {
             return res.status(400).json({
                 success: false,
@@ -525,9 +553,8 @@ const refreshToken = async (req, res) => {
         const newAccessToken = await generateAccessToken(userId, user.role);
 
         const cookiesOption = {
-            httpOnly: true,
             secure: true,
-            sameSite: 'none',
+            sameSite: 'Strict',
         };
         res.cookie('accessToken', newAccessToken, cookiesOption);
         return res.status(200).json({
@@ -545,25 +572,47 @@ const refreshToken = async (req, res) => {
     }
 };
 
-const getUserDetails = async (req, res) => {
+const checkLogin = async (req, res) => {
+    const accessToken = req.cookies.accessToken; // Lấy token từ cookie
+    if (!accessToken) {
+        return res.status(401).json({
+            success: false,
+            message: 'Người dùng chưa đăng nhập',
+        });
+    }
     try {
-        const { _id } = req.user;
-        const user = await UserModel.findById(_id).select('-password -refreshToken');
-        if (!user) {
-            return res.status(400).json({
-                success: false,
-                message: 'Không tìm thấy người dùng',
-            });
-        }
+        jwt.verify(accessToken, process.env.SECRET_KEY_ACCESS_TOKEN);
         return res.status(200).json({
             success: true,
-            message: 'Thông tin người dùng',
-            user,
+            message: 'Người dùng đã đăng nhập',
         });
     } catch (error) {
-        return res.status(500).json({
-            message: error.message || error,
+        return res.status(401).json({
             success: false,
+            message: 'Token không hợp lệ',
+        });
+    }
+};
+
+const checkIsRefreshToken = async (req, res) => {
+    const refreshToken = req.cookies.refreshToken; // Lấy token từ cookie
+    if (!refreshToken) {
+        return res.status(401).json({
+            success: false,
+            message: 'Chưa có refreshToken trong cookies',
+        });
+    }
+    try {
+        // Xác thực token
+        jwt.verify(refreshToken, process.env.SECRET_KEY_REFRESH_TOKEN);
+        return res.status(200).json({
+            success: true,
+            message: 'Đã có refreshToken trong cookies',
+        });
+    } catch (error) {
+        return res.status(401).json({
+            success: false,
+            message: 'Refresh token không hợp lệ',
         });
     }
 };
@@ -839,6 +888,8 @@ export {
     resetPassword,
     refreshToken,
     getUserDetails,
+    checkLogin,
+    checkIsRefreshToken,
     // cart
     addToCart,
     decreaseQuantityCart,

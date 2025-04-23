@@ -22,6 +22,8 @@ import {
     addToWishlist,
     removeFromWishlist,
     getWishlist,
+    checkLogin,
+    checkIsRefreshToken,
 } from '../controllers/UserController.js';
 import { verifyAccessToken } from '../ middlewares/verifyToken.js';
 import upload from '../ middlewares/multer.js';
@@ -38,8 +40,10 @@ userRouter.put('/update-info', verifyAccessToken, updateInfoUser);
 userRouter.post('/forgot-password', forgotPassword);
 userRouter.post('/verify-forgot-password', verifyForgotPasswordOtp);
 userRouter.post('/reset-password', resetPassword);
-userRouter.post('/refreshToken', refreshToken);
+userRouter.get('/refreshToken', refreshToken);
 userRouter.get('/user-details', verifyAccessToken, getUserDetails);
+userRouter.get('/check-login', verifyAccessToken, checkLogin);
+userRouter.get('/checkIsRefreshToken', verifyAccessToken, checkIsRefreshToken);
 
 // CART
 userRouter.post('/addToCart', verifyAccessToken, addToCart);
