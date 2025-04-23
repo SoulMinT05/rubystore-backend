@@ -30,27 +30,19 @@ const staffSchema = mongoose.Schema(
             type: Date,
             default: '',
         },
+        isLocked: {
+            type: Boolean,
+            default: false,
+        },
         status: {
             type: String,
             enum: ['active', 'unactive', 'suspended'],
-            default: '',
+            default: 'active',
         },
         address: [
             {
                 type: mongoose.Schema.ObjectId,
                 ref: 'address',
-            },
-        ],
-        shoppingCart: [
-            {
-                type: mongoose.Schema.ObjectId,
-                ref: 'cart',
-            },
-        ],
-        orderHistory: [
-            {
-                type: mongoose.Schema.ObjectId,
-                ref: 'order',
             },
         ],
         forgotPasswordOtp: {

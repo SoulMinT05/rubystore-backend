@@ -1,5 +1,4 @@
-import UserModel from '../models/UserModel.js';
-import ProductModel from '../models/ProductModel.js';
+import StaffModel from '../models/StaffModel.js';
 
 import bcryptjs from 'bcryptjs';
 import jwt from 'jsonwebtoken';
@@ -21,6 +20,7 @@ const register = async (req, res) => {
     try {
         let user;
         const { name, email, password } = req.body;
+        console.log(name, email, password);
 
         if (!name || !email || !password) {
             return res.status(400).json({
@@ -29,53 +29,20 @@ const register = async (req, res) => {
             });
         }
 
-        // Kiểm tra xem người dùng đã đăng ký chưa
-        user = await UserModel.findOne({ email });
+        user = await StaffModel.findOne({ email });
         if (user) {
-            const isOtpExpired = user.otpExpires < Date.now();
-            if (isOtpExpired) {
-                const verifyCode = Math.floor(100000 + Math.random() * 900000).toString();
-                const otpExpires = Date.now() + 600000; // 10 phút nữa hết hạn
-
-                const salt = await bcryptjs.genSalt(10);
-                const hashPassword = await bcryptjs.hash(password, salt);
-
-                user.name = name;
-                user.password = hashPassword;
-                user.otp = verifyCode;
-                user.otpExpires = otpExpires;
-
-                // Lưu thông tin đã cập nhật vào cơ sở dữ liệu
-                await user.save();
-
-                const token = jwt.sign(
-                    {
-                        email: user.email,
-                        id: user._id,
-                    },
-                    process.env.JSON_WEB_TOKEN_SECRET_KEY,
-                );
-
-                return res.status(200).json({
-                    success: true,
-                    message: 'Đăng ký tài khoản thành công. Vui lòng xác minh email!',
-                    token,
-                });
-            } else {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Email này đã được đăng ký! Vui lòng xác minh email trước khi đăng ký lại.',
-                });
-            }
+            return res.json({
+                success: false,
+                message: 'Email này đã đựoc đăng ký! Vui lòng dùng email khác',
+            });
         }
 
-        // Nếu người dùng chưa đăng ký, tiến hành đăng ký mới
         const verifyCode = Math.floor(100000 + Math.random() * 900000).toString();
 
         const salt = await bcryptjs.genSalt(10);
         const hashPassword = await bcryptjs.hash(password, salt);
 
-        // Gửi email xác minh
+        // Send verification email
         await sendAccountConfirmationEmail(
             email,
             '[From RubyStore] Xác minh địa chỉ email',
@@ -83,13 +50,13 @@ const register = async (req, res) => {
             verifyEmailHtml(name, verifyCode),
         );
 
-        // Lưu thông tin người dùng vào database
-        user = new UserModel({
+        user = new StaffModel({
             name,
             email,
             password: hashPassword,
             otp: verifyCode,
-            otpExpires: Date.now() + 600000, // 10 phút
+            otpExpires: Date.now() + 600000, // 10 minutes
+            role: 'staff',
         });
         await user.save();
 
@@ -100,7 +67,6 @@ const register = async (req, res) => {
             },
             process.env.JSON_WEB_TOKEN_SECRET_KEY,
         );
-
         return res.status(200).json({
             success: true,
             message: 'Đăng ký tài khoản thành công. Vui lòng xác minh email!',
@@ -116,20 +82,8 @@ const register = async (req, res) => {
 
 const verifyEmail = async (req, res) => {
     try {
-        const { token, otp } = req.body;
-
-        let decoded;
-        decoded = jwt.verify(token, process.env.JSON_WEB_TOKEN_SECRET_KEY);
-        if (!decoded) {
-            return res.status(401).json({
-                success: false,
-                message: 'Token không hợp lệ hoặc đã hết hạn!',
-            });
-        }
-
-        const email = decoded.email;
-
-        const user = await UserModel.findOne({ email });
+        const { email, otp } = req.body;
+        const user = await StaffModel.findOne({ email });
         if (!user) {
             return res.status(400).json({
                 success: false,
@@ -146,7 +100,7 @@ const verifyEmail = async (req, res) => {
             await user.save();
             return res.status(200).json({
                 success: true,
-                message: 'Xác thực email thành công! Bạn đã có thể đăng nhập',
+                message: 'Xác thực email thành công!',
             });
         } else if (!isCodeValid) {
             return res.status(400).json({
@@ -170,7 +124,7 @@ const verifyEmail = async (req, res) => {
 const login = async (req, res) => {
     try {
         const { email, password } = req.body;
-        const user = await UserModel.findOne({ email });
+        const user = await StaffModel.findOne({ email });
         if (!user) {
             return res.status(400).json({
                 success: false,
@@ -200,12 +154,12 @@ const login = async (req, res) => {
         const accessToken = await generateAccessToken(user._id, user.role);
         const refreshToken = await generateRefreshToken(user._id);
 
-        await UserModel.findByIdAndUpdate(user?._id, {
+        await StaffModel.findByIdAndUpdate(user?._id, {
             lastLoginDate: new Date(),
         });
 
         const cookiesOption = {
-            // httpOnly: true,
+            httpOnly: true,
             secure: true,
             sameSite: 'none',
         };
@@ -222,7 +176,6 @@ const login = async (req, res) => {
         });
     } catch (error) {
         return res.status(500).json({
-            er: 'Lỗi nè',
             message: error.message || error,
             success: false,
         });
@@ -244,7 +197,7 @@ const logout = async (req, res) => {
         res.clearCookie('accessToken', cookiesOption);
         res.clearCookie('refreshToken', cookiesOption);
 
-        await UserModel.findByIdAndUpdate(
+        await StaffModel.findByIdAndUpdate(
             userId,
             {
                 refreshToken: '',
@@ -267,9 +220,8 @@ const uploadAvatar = async (req, res) => {
     try {
         const userId = req.user._id;
         const image = req?.file;
-        console.log('image ', image);
 
-        const user = await UserModel.findOne({ _id: userId });
+        const user = await StaffModel.findOne({ _id: userId });
         if (!user) {
             return res.status(500).json({
                 success: false,
@@ -329,7 +281,7 @@ const updateInfoUser = async (req, res) => {
         const { _id } = req.user;
         const { name, password, phoneNumber } = req.body;
 
-        const userExist = await UserModel.findById(_id);
+        const userExist = await StaffModel.findById(_id);
         if (!userExist) {
             return res.status(400).json({
                 success: false,
@@ -344,7 +296,7 @@ const updateInfoUser = async (req, res) => {
             hashPassword = userExist.password;
         }
 
-        const updateUser = await UserModel.findByIdAndUpdate(
+        const updateUser = await StaffModel.findByIdAndUpdate(
             _id,
             {
                 name,
@@ -370,7 +322,7 @@ const forgotPassword = async (req, res) => {
     try {
         const { email } = req.body;
 
-        const user = await UserModel.findOne({ email });
+        const user = await StaffModel.findOne({ email });
         if (!user) {
             return res.status(400).json({
                 success: false,
@@ -379,7 +331,7 @@ const forgotPassword = async (req, res) => {
         }
         let verifyCode = Math.floor(100000 + Math.random() * 900000).toString();
 
-        const updateUser = await UserModel.findByIdAndUpdate(
+        const updateUser = await StaffModel.findByIdAndUpdate(
             user._id,
             {
                 otp: verifyCode,
@@ -409,7 +361,7 @@ const forgotPassword = async (req, res) => {
 const verifyForgotPasswordOtp = async (req, res) => {
     try {
         const { email, otp } = req.body;
-        const user = await UserModel.findOne({ email });
+        const user = await StaffModel.findOne({ email });
         if (!user) {
             return res.status(400).json({
                 success: false,
@@ -462,7 +414,7 @@ const resetPassword = async (req, res) => {
                 message: 'Điền đầy đủ email, mật khẩu mới, xác nhận mật khẩu',
             });
         }
-        const user = await UserModel.findOne({ email });
+        const user = await StaffModel.findOne({ email });
         if (!user) {
             return res.status(400).json({
                 success: false,
@@ -478,7 +430,7 @@ const resetPassword = async (req, res) => {
         const salt = await bcryptjs.genSalt(10);
         const hashPassword = await bcryptjs.hash(password, salt);
 
-        await UserModel.findOneAndUpdate(user._id, {
+        await StaffModel.findOneAndUpdate(user._id, {
             password: hashPassword,
         });
 
@@ -496,8 +448,7 @@ const resetPassword = async (req, res) => {
 
 const refreshToken = async (req, res) => {
     try {
-        // const refreshToken = req.body.token || req.cookies.refreshToken || req?.headers?.authorization?.split(' ')[1];
-        const refreshToken = req.body.token;
+        const refreshToken = req.cookies.refreshToken || req?.headers?.authorization?.split(' ')[1];
         if (!refreshToken) {
             return res.status(400).json({
                 success: false,
@@ -505,7 +456,7 @@ const refreshToken = async (req, res) => {
             });
         }
 
-        const verifyToken = jwt.verify(refreshToken, process.env.SECRET_KEY_REFRESH_TOKEN);
+        const verifyToken = await jwt.verify(refreshToken, process.env.SECRET_KEY_REFRESH_TOKEN);
         if (!verifyToken) {
             return res.status(401).json({
                 success: false,
@@ -514,7 +465,7 @@ const refreshToken = async (req, res) => {
         }
         const userId = verifyToken?._id;
         // ✅ Lấy role từ DB
-        const user = await UserModel.findById(userId);
+        const user = await StaffModel.findById(userId);
         if (!user) {
             return res.status(404).json({
                 success: false,
@@ -522,7 +473,7 @@ const refreshToken = async (req, res) => {
             });
         }
 
-        const newAccessToken = await generateAccessToken(userId, user.role);
+        const newAccessToken = generateAccessToken(userId, user.role);
 
         const cookiesOption = {
             httpOnly: true,
@@ -548,7 +499,7 @@ const refreshToken = async (req, res) => {
 const getUserDetails = async (req, res) => {
     try {
         const { _id } = req.user;
-        const user = await UserModel.findById(_id).select('-password -refreshToken');
+        const user = await StaffModel.findById(_id).select('-password -refreshToken');
         if (!user) {
             return res.status(400).json({
                 success: false,
@@ -568,264 +519,6 @@ const getUserDetails = async (req, res) => {
     }
 };
 
-// CART
-const addToCart = async (req, res) => {
-    try {
-        const userId = req.user._id;
-        const { productId } = req.body;
-
-        if (!productId) {
-            return res.status(400).json({
-                success: false,
-                message: 'Thiếu productId',
-            });
-        }
-
-        const user = await UserModel.findById(userId);
-        if (!user) {
-            return res.status(404).json({
-                success: false,
-                message: 'Không tìm thấy người dùng',
-            });
-        }
-
-        const cartItemIndex = user.shoppingCart.findIndex((item) => item.product.toString() === productId);
-
-        let message = '';
-        if (cartItemIndex !== -1) {
-            // Tăng số lượng nếu sản phẩm đã có trong giỏ
-            user.shoppingCart[cartItemIndex].quantity += 1;
-            message = 'Tăng số lượng sản phẩm trong giỏ hàng';
-        } else {
-            // Thêm mới sản phẩm nếu chưa có
-            user.shoppingCart.push({
-                product: productId,
-                quantity: 1,
-            });
-            message = 'Thêm sản phẩm vào giỏ hàng thành công';
-        }
-
-        await user.save();
-
-        return res.status(200).json({
-            success: true,
-            shoppingCart: user.shoppingCart,
-            message,
-        });
-    } catch (error) {
-        console.error('Lỗi addToCart:', error);
-        return res.status(500).json({
-            success: false,
-            message: 'Lỗi server: ' + error.message,
-        });
-    }
-};
-
-const decreaseQuantityCart = async (req, res) => {
-    try {
-        const userId = req.user._id;
-        const { productId } = req.body;
-
-        const user = await UserModel.findById(userId);
-        if (!user) {
-            return res.status(404).json({
-                success: false,
-                message: 'Không tìm thấy người dùng',
-            });
-        }
-
-        const index = user.shoppingCart.findIndex((item) => item.product.toString() === productId);
-        if (index === -1) {
-            return res.status(404).json({
-                success: false,
-                message: 'Sản phẩm không tồn tại trong giỏ hàng',
-            });
-        }
-
-        if (user.shoppingCart[index].quantity > 1) {
-            user.shoppingCart[index].quantity -= 1;
-        } else {
-            // Nếu quantity = 1 => xóa khỏi giỏ
-            user.shoppingCart.splice(index, 1);
-        }
-
-        await user.save();
-
-        return res.status(200).json({
-            success: true,
-            shoppingCart: user.shoppingCart,
-            message: 'Giảm số lượng sản phẩm giỏ hàng',
-        });
-    } catch (error) {
-        console.error('Lỗi decreaseQuantityCart:', error);
-        return res.status(500).json({
-            success: false,
-            message: 'Lỗi server: ' + error.message,
-        });
-    }
-};
-
-const removeProductCart = async (req, res) => {
-    try {
-        const userId = req.user._id;
-
-        const { productId } = req.body;
-        if (!productId) {
-            return res.status(400).json({
-                success: false,
-                message: 'Thiếu productId',
-            });
-        }
-
-        const updatedUser = await UserModel.findByIdAndUpdate(
-            userId,
-            {
-                $pull: {
-                    shoppingCart: { product: productId },
-                },
-            },
-            { new: true },
-        );
-
-        return res.status(200).json({
-            success: true,
-            message: 'Xoá sản phẩm khỏi giỏ hàng',
-            cart: updatedUser.shoppingCart,
-        });
-    } catch (error) {
-        console.error('Lỗi khi xoá sản phẩm khỏi giỏ hàng:', error);
-        return res.status(500).json({
-            success: false,
-            message: 'Lỗi server: ' + error.message,
-        });
-    }
-};
-
-const getCart = async (req, res) => {
-    try {
-        const userId = req.user._id;
-        const user = await UserModel.findById(userId).select('shoppingCart').populate({
-            path: 'shoppingCart.product',
-        });
-        return res.status(200).json({
-            success: true,
-            cart: user,
-        });
-    } catch (error) {
-        return res.status(500).json({
-            message: error.message || error,
-            success: false,
-        });
-    }
-};
-
-// WISHLIST
-const addToWishlist = async (req, res) => {
-    try {
-        const userId = req.user._id;
-        const { productId } = req.body;
-
-        if (!productId) {
-            return res.status(400).json({
-                success: false,
-                message: 'Thiếu ID sản phẩm!',
-            });
-        }
-
-        const user = await UserModel.findById(userId);
-
-        const alreadyExists = user.wishlist.some((item) => item.product.toString() === productId);
-        console.log('alreadyExists: ', alreadyExists);
-        if (alreadyExists) {
-            return res.status(400).json({
-                success: false,
-                message: 'Sản phẩm đã có trong wishlist!',
-            });
-        }
-
-        const product = await ProductModel.findById(productId);
-        if (!product) {
-            return res.status(404).json({
-                success: false,
-                message: 'Sản phẩm không tồn tại!',
-            });
-        }
-
-        const wishlistItem = {
-            product: product._id,
-            productName: product.name,
-            image: product.image || '',
-            rating: product.rating || 0,
-            price: product.price,
-            oldPrice: product.oldPrice,
-            brand: product.brand,
-            discount: product.discount || 0,
-        };
-
-        user.wishlist.push(wishlistItem);
-        await user.save();
-
-        return res.status(200).json({
-            success: true,
-            message: 'Đã thêm vào wishlist!',
-            wishlist: wishlistItem,
-        });
-    } catch (error) {
-        console.error('Add to wishlist error:', error);
-        return res.status(500).json({
-            success: false,
-            message: 'Lỗi máy chủ!',
-        });
-    }
-};
-
-const removeFromWishlist = async (req, res) => {
-    try {
-        const userId = req.user._id;
-        const { productId } = req.params;
-
-        const updatedUser = await UserModel.findByIdAndUpdate(
-            userId,
-            {
-                $pull: {
-                    wishlist: { product: productId },
-                },
-            },
-            { new: true },
-        );
-
-        return res.status(200).json({
-            success: true,
-            message: 'Đã xoá sản phẩm khỏi wishlist!',
-            wishlist: updatedUser.wishlist,
-        });
-    } catch (error) {
-        console.error('Remove wishlist error:', error);
-        return res.status(500).json({
-            success: false,
-            message: 'Lỗi máy chủ!',
-        });
-    }
-};
-
-const getWishlist = async (req, res) => {
-    try {
-        const userId = req.user._id;
-        const user = await UserModel.findById(userId);
-
-        return res.status(200).json({
-            success: true,
-            wishlist: user.wishlist || [],
-        });
-    } catch (error) {
-        console.error('Get wishlist error:', error);
-        return res.status(500).json({
-            success: false,
-            message: 'Lỗi máy chủ!',
-        });
-    }
-};
-
 export {
     register,
     verifyEmail,
@@ -839,13 +532,4 @@ export {
     resetPassword,
     refreshToken,
     getUserDetails,
-    // cart
-    addToCart,
-    decreaseQuantityCart,
-    removeProductCart,
-    getCart,
-    // wishlist
-    addToWishlist,
-    removeFromWishlist,
-    getWishlist,
 };

@@ -34,6 +34,10 @@ const userSchema = mongoose.Schema(
             type: Date,
             default: '',
         },
+        isLocked: {
+            type: Boolean,
+            default: false,
+        },
         status: {
             type: String,
             enum: ['active', 'unactive', 'suspended'],
