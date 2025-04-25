@@ -273,7 +273,7 @@ const logout = async (req, res) => {
 const uploadAvatar = async (req, res) => {
     try {
         const userId = req.user._id;
-        const image = req?.file;
+        const image = req.file;
         console.log('image ', image);
 
         const user = await UserModel.findOne({ _id: userId });
@@ -296,6 +296,7 @@ const uploadAvatar = async (req, res) => {
         await user.save();
 
         return res.status(200).json({
+            success: true,
             _id: userId,
             avatar: image.path,
         });
