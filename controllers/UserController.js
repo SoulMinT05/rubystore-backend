@@ -504,6 +504,59 @@ const resetPassword = async (req, res) => {
     }
 };
 
+const changePassword = async (req, res) => {
+    try {
+        const { email, oldPassword, password, confirmPassword } = req.body;
+
+        if (!email || !oldPassword || !password || !confirmPassword) {
+            return res.status(400).json({
+                success: false,
+                message: 'Vui lòng điền đầy đủ mật khẩu cũ, mật khẩu mới, xác nhận mật khẩu.',
+            });
+        }
+
+        const user = await UserModel.findOne({ email });
+        if (!user) {
+            return res.status(400).json({
+                success: false,
+                message: 'Email không tồn tại.',
+            });
+        }
+
+        const isMatch = await bcryptjs.compare(oldPassword, user.password);
+        if (!isMatch) {
+            return res.status(400).json({
+                success: false,
+                message: 'Mật khẩu cũ không đúng.',
+            });
+        }
+
+        if (password !== confirmPassword) {
+            return res.status(400).json({
+                success: false,
+                message: 'Mật khẩu mới và xác nhận mật khẩu không khớp.',
+            });
+        }
+
+        const salt = await bcryptjs.genSalt(10);
+        const hashPassword = await bcryptjs.hash(password, salt);
+
+        await UserModel.findByIdAndUpdate(user._id, {
+            password: hashPassword,
+        });
+
+        return res.status(200).json({
+            success: true,
+            message: 'Đổi mật khẩu thành công!',
+        });
+    } catch (error) {
+        return res.status(500).json({
+            message: error.message || error,
+            success: false,
+        });
+    }
+};
+
 const getUserDetails = async (req, res) => {
     try {
         const { _id } = req.user;
@@ -890,6 +943,7 @@ export {
     forgotPassword,
     verifyForgotPasswordOtp,
     resetPassword,
+    changePassword,
     refreshToken,
     getUserDetails,
     checkLogin,
