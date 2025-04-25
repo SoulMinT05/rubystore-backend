@@ -75,12 +75,13 @@ const register = async (req, res) => {
         const salt = await bcryptjs.genSalt(10);
         const hashPassword = await bcryptjs.hash(password, salt);
 
+        const message = 'đăng ký tài khoản';
         // Gửi email xác minh
         await sendAccountConfirmationEmail(
             email,
             '[From RubyStore] Xác minh địa chỉ email',
             '',
-            verifyEmailHtml(name, verifyCode),
+            verifyEmailHtml(name, message, verifyCode),
         );
 
         // Lưu thông tin người dùng vào database
@@ -394,12 +395,14 @@ const forgotPassword = async (req, res) => {
             { new: true },
         );
 
+        const message = 'xin cấp lại mật khẩu mới';
         await sendAccountConfirmationEmail(
             email,
             '[From RubyStore] Xác minh địa chỉ email',
             '',
-            verifyEmailHtml(user?.name, verifyCode),
+            verifyEmailHtml(user?.name, message, verifyCode),
         );
+
         return res.status(200).json({
             success: true,
             message: 'Mã OTP đã được gửi. Kiểm tra email',
@@ -490,7 +493,7 @@ const resetPassword = async (req, res) => {
 
         return res.status(200).json({
             success: true,
-            message: 'Đặt lại mật khẩu thành công',
+            message: 'Đặt lại mật khẩu thành công. Bạn đã có thể đăng nhập!',
         });
     } catch (error) {
         return res.status(500).json({
