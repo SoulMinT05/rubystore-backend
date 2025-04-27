@@ -2,7 +2,7 @@ import mongoose from 'mongoose';
 
 const addressSchema = mongoose.Schema(
     {
-        addressLine: {
+        streetLine: {
             type: String,
             default: '',
         },
@@ -20,16 +20,16 @@ const addressSchema = mongoose.Schema(
         },
         country: {
             type: String,
-            default: '',
+            default: 'Việt Nam',
         },
-        phoneNumber: {
-            type: Number,
-            default: null,
-        },
-        status: {
-            type: Boolean,
-            default: false,
-        },
+        // phoneNumber: {
+        //     type: Number,
+        //     default: null,
+        // },
+        // status: {
+        //     type: Boolean,
+        //     default: false,
+        // },
         userId: {
             type: mongoose.Schema.ObjectId,
             ref: 'user',

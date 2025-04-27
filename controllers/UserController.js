@@ -932,6 +932,35 @@ const getWishlist = async (req, res) => {
     }
 };
 
+const updateAddress = async (req, res) => {
+    try {
+        const userId = req.user._id; // userId lấy từ token sau khi verify
+        const { streetLine, city, district, ward, country } = req.body;
+
+        // Kiểm tra người dùng có tồn tại không
+        const user = await UserModel.findById(userId);
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'Người dùng không tồn tại' });
+        }
+
+        // Update address
+        user.address = {
+            streetLine: streetLine || user.address?.streetLine || '',
+            city: city || user.address?.city || '',
+            district: district || user.address?.district || '',
+            ward: ward || user.address?.ward || '',
+            country: country || user.address?.country || 'Việt Nam',
+        };
+
+        await user.save();
+
+        res.status(200).json({ success: true, message: 'Cập nhật địa chỉ thành công', address: user.address });
+    } catch (error) {
+        console.error('Lỗi khi cập nhật địa chỉ:', error);
+        res.status(500).json({ success: false, message: 'Đã xảy ra lỗi khi cập nhật địa chỉ', error });
+    }
+};
+
 export {
     register,
     verifyEmail,
@@ -957,4 +986,6 @@ export {
     addToWishlist,
     removeFromWishlist,
     getWishlist,
+    // address
+    updateAddress,
 };

@@ -26,6 +26,10 @@ const staffSchema = mongoose.Schema(
             type: Boolean,
             default: false,
         },
+        refreshToken: {
+            type: String,
+            default: '',
+        },
         lastLoginDate: {
             type: Date,
             default: '',
@@ -39,12 +43,19 @@ const staffSchema = mongoose.Schema(
             enum: ['active', 'unactive', 'suspended'],
             default: 'active',
         },
-        address: [
-            {
-                type: mongoose.Schema.ObjectId,
-                ref: 'address',
-            },
-        ],
+        address: {
+            streetLine: { type: String, default: '' },
+            city: { type: String, default: '' },
+            district: { type: String, default: '' },
+            ward: { type: String, default: '' },
+            country: { type: String, default: 'Việt Nam' },
+        },
+        otp: {
+            type: String,
+        },
+        otpExpires: {
+            type: Date,
+        },
         forgotPasswordOtp: {
             type: String,
             default: null,

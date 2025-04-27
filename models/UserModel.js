@@ -43,12 +43,13 @@ const userSchema = mongoose.Schema(
             enum: ['active', 'unactive', 'suspended'],
             default: 'active',
         },
-        address: [
-            {
-                type: mongoose.Schema.ObjectId,
-                ref: 'address',
-            },
-        ],
+        address: {
+            streetLine: { type: String, default: '' },
+            city: { type: String, default: '' },
+            district: { type: String, default: '' },
+            ward: { type: String, default: '' },
+            country: { type: String, default: 'Việt Nam' },
+        },
         wishlist: [
             {
                 product: {

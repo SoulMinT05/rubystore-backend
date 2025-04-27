@@ -25,6 +25,7 @@ import {
     checkLogin,
     checkIsRefreshToken,
     changePassword,
+    updateAddress,
 } from '../controllers/UserController.js';
 import { verifyAccessToken } from '../ middlewares/verifyToken.js';
 import upload from '../ middlewares/multer.js';
@@ -57,5 +58,8 @@ userRouter.get('/', verifyAccessToken, getCart);
 userRouter.post('/addToWishlist', verifyAccessToken, addToWishlist);
 userRouter.delete('/removeFromWishlist/:productId', verifyAccessToken, removeFromWishlist);
 userRouter.get('/getWishlist', verifyAccessToken, getWishlist);
+
+// ADDRESS
+userRouter.put('/update-address', verifyAccessToken, updateAddress);
 
 export default userRouter;
