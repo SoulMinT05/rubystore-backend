@@ -14,14 +14,12 @@ const createCategory = async (req, res) => {
         const { name, parentCategoryName, parentId } = req.body;
         const images = req.files; // nhiều ảnh
 
-        // if (!name) {
-        //     return res.status(400).json({
-        //         success: false,
-        //         message: 'Tên danh mục là bắt buộc',
-        //     });
-        // }
-
-        const imageUrls = images?.map((img) => img.path); // multer-storage-cloudinary sẽ có .path là link cloud
+        const imageUrls = await Promise.all(
+            images?.map(async (img) => {
+                const uploadedImage = await cloudinary.uploader.upload(img.path); // upload ảnh lên Cloudinary (hoặc bất kỳ dịch vụ nào khác)
+                return uploadedImage.url; // trả về URL ảnh đã tải lên
+            }),
+        );
 
         const newCategory = await CategoryModel.create({
             name,
@@ -177,25 +175,27 @@ const deleteCategory = async (req, res) => {
         const category = await CategoryModel.findById(req.params.id);
         const images = category.images;
 
-        for (img of images) {
-            const imgUrl = img;
-            const urlArr = imgUrl.split('/');
-            const image = urlArr[urlArr.length - 1];
-            const imageName = image.split('.')[0];
+        if (images.length > 0) {
+            for (let img of images) {
+                const imgUrl = img;
+                const urlArr = imgUrl.split('/');
+                const image = urlArr[urlArr.length - 1];
+                const imageName = image.split('.')[0];
 
-            if (imageName) {
-                await cloudinary.uploader.destroy(imageName);
+                if (imageName) {
+                    await cloudinary.uploader.destroy(imageName);
+                }
             }
         }
         const subCategory = await CategoryModel.find({
             parentId: req.params.id,
         });
-        for (let i = 0; subCategory.length; i++) {
-            const thirdSubCaterogy = await CategoryModel.find({
+        for (let i = 0; i < subCategory.length; i++) {
+            const thirdSubCategory = await CategoryModel.find({
                 parentId: subCategory[i]._id,
             });
-            for (let i = 0; thirdSubCaterogy.length; i++) {
-                await CategoryModel.findByIdAndDelete(thirdSubCaterogy[i]._id);
+            for (let i = 0; j < thirdSubCategory.length; i++) {
+                await CategoryModel.findByIdAndDelete(thirdSubCategory[i]._id);
             }
             await CategoryModel.findByIdAndDelete(subCategory[i]._id);
         }
@@ -221,17 +221,7 @@ const deleteCategory = async (req, res) => {
 
 const updateCategory = async (req, res) => {
     try {
-        const category = await CategoryModel.findByIdAndUpdate(
-            req.params.id,
-            {
-                name: req.body.name,
-                parentId: req.body.parentId,
-                parentCategoryName: req.body.parentCategoryName,
-            },
-            {
-                new: true,
-            },
-        );
+        const category = await CategoryModel.findById(req.params.id);
         if (!category) {
             return res.status(400).json({
                 success: false,
@@ -239,27 +229,23 @@ const updateCategory = async (req, res) => {
             });
         }
 
-        // --- Xoá ảnh cũ nếu có deletedImages ---
         const deletedImages = req.body.deletedImages || []; // array các URL cần xoá
 
         if (deletedImages.length > 0) {
             category.images = category.images.filter((img) => !deletedImages.includes(img));
-
-            // Xoá ảnh khỏi cloudinary
-            for (const url of deletedImages) {
-                const urlArr = url.split('/');
-                const imageWithExt = urlArr[urlArr.length - 1];
-                const publicId = imageWithExt.split('.')[0];
-
-                if (publicId) {
-                    await cloudinary.uploader.destroy(publicId);
-                }
-            }
         }
 
         // --- Thêm ảnh mới nếu có ---
         const newImages = req.files?.map((file) => file.path) || [];
-        category.images = [...category.images, ...newImages];
+
+        if (newImages.length > 0) {
+            // Sử dụng Promise.all để xử lý nhiều ảnh cùng một lúc
+            await Promise.all(
+                newImages.map((image) => {
+                    return category.images.push(image); // Đẩy ảnh vào mảng images
+                }),
+            );
+        }
 
         // --- Cập nhật tên và danh mục cha ---
         category.name = req.body.name || category.name;
@@ -271,6 +257,7 @@ const updateCategory = async (req, res) => {
         return res.status(200).json({
             success: true,
             message: 'Cập nhật danh mục thành công',
+            updatedCategory: category,
         });
     } catch (error) {
         return res.status(500).json({

@@ -18,7 +18,7 @@ categoryRouter.get('/categories/count', getCategoriesCount);
 categoryRouter.get('/sub-categories/count', getSubCategoriesCount);
 
 categoryRouter.post('/create', verifyAccessToken, upload.array('images'), createCategory);
-categoryRouter.get('/all-categories', getCategories);
+categoryRouter.get('/all-categories', verifyAccessToken, getCategories);
 categoryRouter.get('/:id', getDetailsCategory);
 categoryRouter.delete('/:id', verifyAccessToken, deleteCategory);
 categoryRouter.put('/:id', verifyAccessToken, upload.array('images'), updateCategory);
