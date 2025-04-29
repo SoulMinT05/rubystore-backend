@@ -14,12 +14,23 @@ const createCategory = async (req, res) => {
         const { name, parentCategoryName, parentId } = req.body;
         const images = req.files; // nhiều ảnh
 
-        const imageUrls = await Promise.all(
-            images?.map(async (img) => {
-                const uploadedImage = await cloudinary.uploader.upload(img.path); // upload ảnh lên Cloudinary (hoặc bất kỳ dịch vụ nào khác)
-                return uploadedImage.url; // trả về URL ảnh đã tải lên
-            }),
-        );
+        if (!name) {
+            return res.status(500).json({
+                success: false,
+                message: 'Cần điền tên danh mục',
+            });
+        }
+
+        let imageUrls = [];
+
+        if (images && images.length > 0) {
+            imageUrls = await Promise.all(
+                images?.map(async (img) => {
+                    const uploadedImage = await cloudinary.uploader.upload(img.path); // upload ảnh lên Cloudinary (hoặc bất kỳ dịch vụ nào khác)
+                    return uploadedImage.url; // trả về URL ảnh đã tải lên
+                }),
+            );
+        }
 
         const newCategory = await CategoryModel.create({
             name,
