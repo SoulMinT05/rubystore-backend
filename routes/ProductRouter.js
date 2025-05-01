@@ -17,6 +17,7 @@ import {
     deleteProduct,
     getDetailsProduct,
     updateProduct,
+    deleteMultipleProduct,
 } from '../controllers/ProductController.js';
 import { verifyAccessToken } from '../ middlewares/verifyToken.js';
 import upload from '../ middlewares/multer.js';
@@ -39,7 +40,9 @@ productRouter.get('/all-products-price', getProductsByPrice);
 productRouter.get('/all-products-rating', getProductsByRating);
 productRouter.get('/count', getProductsCount);
 productRouter.get('/feature', getProductsByFeature);
-productRouter.delete('/:id', verifyAccessToken, upload.array('images'), deleteProduct);
+
+productRouter.delete('/deleteMultipleProduct', verifyAccessToken, deleteMultipleProduct);
+productRouter.delete('/:id', verifyAccessToken, deleteProduct);
 productRouter.get('/:id', getDetailsProduct);
 productRouter.put('/:id', verifyAccessToken, upload.array('images'), updateProduct);
 

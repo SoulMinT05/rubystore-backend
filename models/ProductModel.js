@@ -84,7 +84,7 @@ const productSchema = mongoose.Schema(
                 default: null,
             },
         ],
-        size: [
+        productSize: [
             {
                 type: String,
                 default: null,

@@ -20,29 +20,38 @@ const createProduct = async (req, res) => {
             categoryName,
             categoryId,
             subCategoryId,
-            subCategory,
+            subCategoryName,
             thirdSubCategoryId,
-            thirdSubCategory,
+            thirdSubCategoryName,
             countInStock,
             rating,
             isFeatured,
             isPublished,
             discount,
             productRam,
-            size,
+            productSize,
             productWeight,
         } = req.body;
         const images = req.files; // nhiều ảnh
 
-        // if (!name || !description) {
-        //     return res.status(400).json({
-        //         success: false,
-        //         message: 'Cần nhập tên, và mô tả sản phẩm',
-        //     });
-        // }
+        if (!name || !description) {
+            return res.status(400).json({
+                success: false,
+                message: 'Cần nhập tên, và mô tả sản phẩm',
+            });
+        }
 
-        const imageUrls = Array.isArray(images) ? images.map((img) => img.path) : []; // multer-storage-cloudinary sẽ có .path là link cloud
-        const product = await ProductModel.create({
+        let imageUrls = [];
+
+        if (images && images.length > 0) {
+            imageUrls = await Promise.all(
+                images?.map(async (img) => {
+                    const uploadedImage = await cloudinary.uploader.upload(img.path); // upload ảnh lên Cloudinary (hoặc bất kỳ dịch vụ nào khác)
+                    return uploadedImage.url; // trả về URL ảnh đã tải lên
+                }),
+            );
+        }
+        const newProduct = await ProductModel.create({
             name,
             images: imageUrls,
             description,
@@ -52,9 +61,9 @@ const createProduct = async (req, res) => {
             categoryName,
             categoryId,
             subCategoryId,
-            subCategory,
+            subCategoryName,
             thirdSubCategoryId,
-            thirdSubCategory,
+            thirdSubCategoryName,
             category: categoryId,
             countInStock,
             rating,
@@ -62,10 +71,10 @@ const createProduct = async (req, res) => {
             isPublished,
             discount,
             productRam,
-            size,
+            productSize,
             productWeight,
         });
-        if (!product) {
+        if (!newProduct) {
             return res.status(400).json({
                 success: false,
                 message: 'Tạo sản phẩm thất bại!',
@@ -75,7 +84,7 @@ const createProduct = async (req, res) => {
         return res.status(201).json({
             success: true,
             message: 'Tạo sản phẩm thành công',
-            product,
+            newProduct,
         });
     } catch (error) {
         console.error('Create category error: ', error);
@@ -635,7 +644,7 @@ const deleteProduct = async (req, res) => {
             });
         }
         const images = product.images;
-        for (img of images) {
+        for (const img of images) {
             const imgUrl = img;
             const urlArr = imgUrl.split('/');
             const image = urlArr[urlArr.length - 1];
@@ -662,6 +671,44 @@ const deleteProduct = async (req, res) => {
         return res.status(500).json({
             success: false,
             message: error.message || error,
+        });
+    }
+};
+
+const deleteMultipleProduct = async (req, res) => {
+    try {
+        const { ids } = req.body;
+        if (!ids || !Array.isArray(ids)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Cần cung cấp id sản phẩm',
+            });
+        }
+        for (let i = 0; i < ids.length; i++) {
+            const product = await ProductModel.findById(ids[i]);
+
+            const images = product.images;
+            for (const img of images) {
+                const imgUrl = img;
+                const urlArr = imgUrl.split('/');
+                const image = urlArr[urlArr.length - 1];
+                const imageName = image.split('.')[0];
+
+                if (imageName) {
+                    await cloudinary.uploader.destroy(imageName);
+                }
+            }
+
+            await ProductModel.deleteMany({
+                _id: {
+                    $in: ids,
+                },
+            });
+        }
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: error,
         });
     }
 };
@@ -725,16 +772,16 @@ const updateProduct = async (req, res) => {
                 categoryId: req.body.categoryId,
                 category: req.body.category,
                 subCategoryId: req.body.subCategoryId,
-                subCategory: req.body.subCategory,
+                subCategoryName: req.body.subCategoryName,
                 thirdSubCategoryId: req.body.thirdSubCategoryId,
-                thirdSubCategory: req.body.thirdSubCategory,
+                thirdSubCategoryName: req.body.thirdSubCategoryName,
                 countInStock: req.body.countInStock,
                 rating: req.body.rating,
                 isFeatured: req.body.isFeatured,
                 isPublished: req.body.isPublished,
                 discount: req.body.discount,
                 productRam: req.body.productRam,
-                size: req.body.size,
+                productSize: req.body.productSize,
                 productWeight: req.body.productWeight,
             },
             { new: true },
@@ -753,27 +800,35 @@ const updateProduct = async (req, res) => {
         if (deletedImages.length > 0) {
             product.images = product.images.filter((img) => !deletedImages.includes(img));
 
-            // Xoá ảnh khỏi cloudinary
-            for (const url of deletedImages) {
-                const urlArr = url.split('/');
-                const imageWithExt = urlArr[urlArr.length - 1];
-                const publicId = imageWithExt.split('.')[0];
+            //     // Xoá ảnh khỏi cloudinary
+            //     for (const url of deletedImages) {
+            //         const urlArr = url.split('/');
+            //         const imageWithExt = urlArr[urlArr.length - 1];
+            //         const publicId = imageWithExt.split('.')[0];
 
-                if (publicId) {
-                    await cloudinary.uploader.destroy(publicId);
-                }
-            }
+            //         if (publicId) {
+            //             await cloudinary.uploader.destroy(publicId);
+            //         }
+            //     }
         }
+        let imageUrls = [];
 
-        // --- Thêm ảnh mới nếu có ---
-        const newImages = req.files?.map((file) => file.path) || [];
-        product.images = [...product.images, ...newImages];
+        if (req.files && req.files.length > 0) {
+            imageUrls = await Promise.all(
+                req.files.map(async (img) => {
+                    const uploadedImage = await cloudinary.uploader.upload(img.path);
+                    return uploadedImage.url;
+                }),
+            );
+        }
+        product.images = [...product.images, ...imageUrls];
 
         await product.save();
 
         return res.status(200).json({
             success: true,
             message: 'Cập nhật sản phẩm thành công',
+            updatedProduct: product,
         });
     } catch (error) {
         return res.status(500).json({
@@ -798,6 +853,7 @@ export {
     getProductsCount,
     getProductsByFeature,
     deleteProduct,
+    deleteMultipleProduct,
     getDetailsProduct,
     removeImageFromCloudinary,
     updateProduct,
