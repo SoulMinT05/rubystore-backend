@@ -684,27 +684,46 @@ const deleteMultipleProduct = async (req, res) => {
                 message: 'Cần cung cấp id sản phẩm',
             });
         }
-        for (let i = 0; i < ids.length; i++) {
-            const product = await ProductModel.findById(ids[i]);
 
-            const images = product.images;
-            for (const img of images) {
-                const imgUrl = img;
-                const urlArr = imgUrl.split('/');
+        const products = await ProductModel.find({ _id: { $in: ids } });
+        const destroyImagePromises = products.flatMap((product) => {
+            const images = product.images || [];
+            return images.map((img) => {
+                const urlArr = img.split('/');
                 const image = urlArr[urlArr.length - 1];
                 const imageName = image.split('.')[0];
-
-                if (imageName) {
-                    await cloudinary.uploader.destroy(imageName);
-                }
-            }
-
-            await ProductModel.deleteMany({
-                _id: {
-                    $in: ids,
-                },
+                return cloudinary.uploader.destroy(imageName);
             });
-        }
+        });
+
+        await Promise.all(destroyImagePromises);
+
+        // Xoá tất cả sản phẩm
+        await ProductModel.deleteMany({ _id: { $in: ids } });
+        return res.status(200).json({
+            success: true,
+            message: 'Xoá sản phẩm thành công',
+        });
+
+        // for (let i = 0; i < ids.length; i++) {
+        //     const product = await ProductModel.findById(ids[i]);
+
+        //     const images = product.images;
+        //     for (const img of images) {
+        //         const imgUrl = img;
+        //         const urlArr = imgUrl.split('/');
+        //         const image = urlArr[urlArr.length - 1];
+        //         const imageName = image.split('.')[0];
+
+        //         if (imageName) {
+        //             await cloudinary.uploader.destroy(imageName);
+        //         }
+        //     }
+
+        //     await ProductModel.deleteMany({
+        //         _id: {$in: ids,},
+        //     });
+        // }
     } catch (error) {
         return res.status(500).json({
             success: false,

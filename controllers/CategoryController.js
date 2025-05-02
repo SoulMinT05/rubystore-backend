@@ -198,19 +198,20 @@ const deleteCategory = async (req, res) => {
                 }
             }
         }
+        // Tìm các danh mục con cấp 1
         const subCategory = await CategoryModel.find({
             parentId: req.params.id,
         });
-        for (let i = 0; i < subCategory.length; i++) {
-            const thirdSubCategory = await CategoryModel.find({
-                parentId: subCategory[i]._id,
-            });
-            for (let i = 0; j < thirdSubCategory.length; i++) {
-                await CategoryModel.findByIdAndDelete(thirdSubCategory[i]._id);
-            }
-            await CategoryModel.findByIdAndDelete(subCategory[i]._id);
+        for (const sub of subCategory) {
+            // Tìm các danh mục con cấp 2
+            const thirdSubCategory = await CategoryModel.find({ parentId: sub._id });
+            // Xoá tất cả danh mục cấp 2
+            await Promise.all(thirdSubCategory.map((third) => CategoryModel.findByIdAndDelete(third._id)));
+            // Xoá danh mục con cấp 1
+            await CategoryModel.findByIdAndDelete(sub._id);
         }
 
+        // Xoá danh mục gốc
         const deletedCat = await CategoryModel.findByIdAndDelete(req.params.id);
         if (!deletedCat) {
             return res.status(400).json({
