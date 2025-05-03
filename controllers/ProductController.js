@@ -1,6 +1,7 @@
 import ProductModel from '../models/ProductModel.js';
 import ProductRamModel from '../models/ProductRamModel.js';
 import ProductWeightModel from '../models/ProductWeightModel.js';
+import ProductSizeModel from '../models/ProductSizeModel.js';
 
 import { v2 as cloudinary } from 'cloudinary';
 
@@ -165,14 +166,57 @@ const createProductWeight = async (req, res) => {
         if (!newProductWeight) {
             return res.status(400).json({
                 success: false,
-                message: 'Tạo RAM sản phẩm thất bại!',
+                message: 'Tạo cân nặng sản phẩm thất bại!',
             });
         }
 
         return res.status(201).json({
             success: true,
-            message: 'Tạo RAM sản phẩm thành công',
+            message: 'Tạo cân nặng sản phẩm thành công',
             newProductWeight,
+        });
+    } catch (error) {
+        console.error('Create category error: ', error);
+        return res.status(500).json({
+            success: false,
+            message: error.message || error,
+        });
+    }
+};
+
+const createProductSize = async (req, res) => {
+    try {
+        const { name } = req.body;
+
+        if (!name) {
+            return res.status(400).json({
+                success: false,
+                message: 'Cần nhập size sản phẩm',
+            });
+        }
+
+        const existingProductSize = await ProductSizeModel.findOne({ name });
+        if (existingProductSize) {
+            return res.status(400).json({
+                success: false,
+                message: 'Size này đã tồn tại!',
+            });
+        }
+
+        const newProductSize = await ProductSizeModel.create({
+            name,
+        });
+        if (!newProductSize) {
+            return res.status(400).json({
+                success: false,
+                message: 'Tạo size sản phẩm thất bại!',
+            });
+        }
+
+        return res.status(201).json({
+            success: true,
+            message: 'Tạo size sản phẩm thành công',
+            newProductSize,
         });
     } catch (error) {
         console.error('Create category error: ', error);
@@ -290,12 +334,33 @@ const getProductsWeight = async (req, res) => {
         if (!productsWeight) {
             return res.status(500).json({
                 success: false,
-                message: 'Không tìm thấy RAM sản phẩm',
+                message: 'Không tìm thấy cân nặng sản phẩm',
             });
         }
         return res.status(200).json({
             success: true,
             productsWeight,
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: error.message || error,
+        });
+    }
+};
+
+const getProductsSize = async (req, res) => {
+    try {
+        const productsSize = await ProductSizeModel.find();
+        if (!productsSize) {
+            return res.status(500).json({
+                success: false,
+                message: 'Không tìm thấy size sản phẩm',
+            });
+        }
+        return res.status(200).json({
+            success: true,
+            productsSize,
         });
     } catch (error) {
         return res.status(500).json({
@@ -962,6 +1027,56 @@ const deleteMultipleProductWeight = async (req, res) => {
     }
 };
 
+const deleteProductSize = async (req, res) => {
+    try {
+        const productSize = await ProductSizeModel.findByIdAndDelete(req.params.id);
+        if (!productSize) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy sản phẩm',
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            deletedProductSize: productSize,
+            message: 'Xoá size sản phẩm thành công',
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: error.message || error,
+        });
+    }
+};
+
+const deleteMultipleProductSize = async (req, res) => {
+    try {
+        const { ids } = req.body;
+        if (!ids || !Array.isArray(ids)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Cần cung cấp id size sản phẩm',
+            });
+        }
+
+        const productsSize = await ProductSizeModel.find({ _id: { $in: ids } });
+
+        // Xoá tất cả sản phẩm
+        await ProductSizeModel.deleteMany({ _id: { $in: ids } });
+        return res.status(200).json({
+            success: true,
+            message: 'Xoá size sản phẩm thành công',
+            productsSize,
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: error,
+        });
+    }
+};
+
 const getDetailsProduct = async (req, res) => {
     try {
         const product = await ProductModel.findById(req.params.id).populate('category');
@@ -1140,8 +1255,40 @@ const updateProductWeight = async (req, res) => {
 
         return res.status(200).json({
             success: true,
-            message: 'Cập nhật RAM sản phẩm thành công',
+            message: 'Cập nhật cân nặng sản phẩm thành công',
             updatedProductWeight: productWeight,
+        });
+    } catch (error) {
+        return res.status(500).json({
+            message: error.message || error,
+            success: false,
+        });
+    }
+};
+
+const updateProductSize = async (req, res) => {
+    try {
+        const productSize = await ProductSizeModel.findByIdAndUpdate(
+            req.params.id,
+            {
+                name: req.body.name,
+            },
+            { new: true },
+        );
+
+        if (!productSize) {
+            return res.status(400).json({
+                success: false,
+                message: 'Không tìm thấy sản phẩm',
+            });
+        }
+
+        await productSize.save();
+
+        return res.status(200).json({
+            success: true,
+            message: 'Cập nhật size sản phẩm thành công',
+            updatedProductSize: productSize,
         });
     } catch (error) {
         return res.status(500).json({
@@ -1155,10 +1302,12 @@ export {
     createProduct,
     createProductRam,
     createProductWeight,
+    createProductSize,
     getProductsAdmin,
     getProductsUser,
     getProductsRam,
     getProductsWeight,
+    getProductsSize,
     getProductsByCategoryId,
     getProductsByCategoryName,
     getProductsBySubCategoryId,
@@ -1175,9 +1324,12 @@ export {
     deleteMultipleProductRam,
     deleteProductWeight,
     deleteMultipleProductWeight,
+    deleteProductSize,
+    deleteMultipleProductSize,
     getDetailsProduct,
     removeImageFromCloudinary,
     updateProduct,
     updateProductRam,
     updateProductWeight,
+    updateProductSize,
 };

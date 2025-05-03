@@ -28,6 +28,11 @@ import {
     deleteProductWeight,
     updateProductWeight,
     deleteMultipleProductWeight,
+    createProductSize,
+    getProductsSize,
+    deleteProductSize,
+    updateProductSize,
+    deleteMultipleProductSize,
 } from '../controllers/ProductController.js';
 import { verifyAccessToken } from '../ middlewares/verifyToken.js';
 import upload from '../ middlewares/multer.js';
@@ -41,10 +46,12 @@ productRouter.get('/all-products-third-sub-category-id/:id', getProductsByThirdS
 productRouter.post('/create', verifyAccessToken, upload.array('images'), createProduct);
 productRouter.post('/create-ram', verifyAccessToken, createProductRam);
 productRouter.post('/create-weight', verifyAccessToken, createProductWeight);
+productRouter.post('/create-size', verifyAccessToken, createProductSize);
 productRouter.get('/all-products-admin', getProductsAdmin);
 productRouter.get('/all-products-user', getProductsUser);
 productRouter.get('/all-products-ram', getProductsRam);
 productRouter.get('/all-products-weight', getProductsWeight);
+productRouter.get('/all-products-size', getProductsSize);
 
 productRouter.get('/all-products-category-name', getProductsByCategoryName);
 productRouter.get('/all-products-sub-category-name', getProductsBySubCategoryName);
@@ -62,6 +69,10 @@ productRouter.put('/ram/:id', verifyAccessToken, updateProductRam);
 productRouter.delete('/weight/deleteMultipleProductWeight', verifyAccessToken, deleteMultipleProductWeight);
 productRouter.delete('/weight/:id', verifyAccessToken, deleteProductWeight);
 productRouter.put('/weight/:id', verifyAccessToken, updateProductWeight);
+
+productRouter.delete('/size/deleteMultipleProductSize', verifyAccessToken, deleteMultipleProductSize);
+productRouter.delete('/size/:id', verifyAccessToken, deleteProductSize);
+productRouter.put('/size/:id', verifyAccessToken, updateProductSize);
 
 productRouter.delete('/deleteMultipleProduct', verifyAccessToken, deleteMultipleProduct);
 productRouter.delete('/:id', verifyAccessToken, deleteProduct);
