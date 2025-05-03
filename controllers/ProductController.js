@@ -1,4 +1,5 @@
 import ProductModel from '../models/ProductModel.js';
+import ProductRamModel from '../models/ProductRamModel.js';
 
 import { v2 as cloudinary } from 'cloudinary';
 
@@ -95,6 +96,49 @@ const createProduct = async (req, res) => {
     }
 };
 
+const createProductRam = async (req, res) => {
+    try {
+        const { name } = req.body;
+
+        if (!name) {
+            return res.status(400).json({
+                success: false,
+                message: 'Cần nhập RAM sản phẩm',
+            });
+        }
+
+        const existingProductRam = await ProductRamModel.findOne({ name });
+        if (existingProductRam) {
+            return res.status(400).json({
+                success: false,
+                message: 'Tên RAM sản phẩm đã tồn tại!',
+            });
+        }
+
+        const newProductRam = await ProductRamModel.create({
+            name,
+        });
+        if (!newProductRam) {
+            return res.status(400).json({
+                success: false,
+                message: 'Tạo RAM sản phẩm thất bại!',
+            });
+        }
+
+        return res.status(201).json({
+            success: true,
+            message: 'Tạo RAM sản phẩm thành công',
+            newProductRam,
+        });
+    } catch (error) {
+        console.error('Create category error: ', error);
+        return res.status(500).json({
+            success: false,
+            message: error.message || error,
+        });
+    }
+};
+
 const getProductsAdmin = async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
@@ -166,6 +210,27 @@ const getProductsUser = async (req, res) => {
             products,
             totalPages,
             page,
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: error.message || error,
+        });
+    }
+};
+
+const getProductsRam = async (req, res) => {
+    try {
+        const productsRam = await ProductRamModel.find();
+        if (!productsRam) {
+            return res.status(500).json({
+                success: false,
+                message: 'Không tìm thấy RAM sản phẩm',
+            });
+        }
+        return res.status(200).json({
+            success: true,
+            productsRam,
         });
     } catch (error) {
         return res.status(500).json({
@@ -732,6 +797,56 @@ const deleteMultipleProduct = async (req, res) => {
     }
 };
 
+const deleteProductRam = async (req, res) => {
+    try {
+        const productRam = await ProductRamModel.findByIdAndDelete(req.params.id);
+        if (!productRam) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy sản phẩm',
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            deletedProductRam: productRam,
+            message: 'Xoá RAM sản phẩm thành công',
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: error.message || error,
+        });
+    }
+};
+
+const deleteMultipleProductRam = async (req, res) => {
+    try {
+        const { ids } = req.body;
+        if (!ids || !Array.isArray(ids)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Cần cung cấp id RAM sản phẩm',
+            });
+        }
+
+        const productsRam = await ProductRamModel.find({ _id: { $in: ids } });
+
+        // Xoá tất cả sản phẩm
+        await ProductRamModel.deleteMany({ _id: { $in: ids } });
+        return res.status(200).json({
+            success: true,
+            message: 'Xoá RAM sản phẩm thành công',
+            productsRam,
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: error,
+        });
+    }
+};
+
 const getDetailsProduct = async (req, res) => {
     try {
         const product = await ProductModel.findById(req.params.id).populate('category');
@@ -857,10 +972,44 @@ const updateProduct = async (req, res) => {
     }
 };
 
+const updateProductRam = async (req, res) => {
+    try {
+        const productRam = await ProductRamModel.findByIdAndUpdate(
+            req.params.id,
+            {
+                name: req.body.name,
+            },
+            { new: true },
+        );
+
+        if (!productRam) {
+            return res.status(400).json({
+                success: false,
+                message: 'Không tìm thấy sản phẩm',
+            });
+        }
+
+        await productRam.save();
+
+        return res.status(200).json({
+            success: true,
+            message: 'Cập nhật RAM sản phẩm thành công',
+            updatedProductRam: productRam,
+        });
+    } catch (error) {
+        return res.status(500).json({
+            message: error.message || error,
+            success: false,
+        });
+    }
+};
+
 export {
     createProduct,
+    createProductRam,
     getProductsAdmin,
     getProductsUser,
+    getProductsRam,
     getProductsByCategoryId,
     getProductsByCategoryName,
     getProductsBySubCategoryId,
@@ -873,7 +1022,10 @@ export {
     getProductsByFeature,
     deleteProduct,
     deleteMultipleProduct,
+    deleteProductRam,
+    deleteMultipleProductRam,
     getDetailsProduct,
     removeImageFromCloudinary,
     updateProduct,
+    updateProductRam,
 };
