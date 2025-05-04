@@ -45,8 +45,8 @@ userRouter.post('/reset-password', resetPassword);
 userRouter.post('/change-password', verifyAccessToken, changePassword);
 userRouter.get('/refreshToken', refreshToken);
 userRouter.get('/user-details', verifyAccessToken, getUserDetails);
-userRouter.get('/check-login', verifyAccessToken, checkLogin);
-userRouter.get('/checkIsRefreshToken', verifyAccessToken, checkIsRefreshToken);
+userRouter.get('/check-login', checkLogin);
+userRouter.get('/checkIsRefreshToken', checkIsRefreshToken);
 
 // CART
 userRouter.post('/addToCart', verifyAccessToken, addToCart);

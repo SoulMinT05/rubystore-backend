@@ -274,7 +274,6 @@ const uploadAvatar = async (req, res) => {
     try {
         const userId = req.user._id;
         const image = req.file;
-        console.log('image ', image);
 
         const user = await UserModel.findOne({ _id: userId });
         if (!user) {
