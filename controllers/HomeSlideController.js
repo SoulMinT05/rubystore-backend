@@ -111,27 +111,48 @@ const deleteHomeSlide = async (req, res) => {
     }
 };
 
-const deleteAllHomeSlides = async (req, res) => {
+const deleteMultipleHomeSlide = async (req, res) => {
     try {
-        const slides = await HomeSlideModel.find();
+        const { ids } = req.body;
+        if (!ids || !Array.isArray(ids)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Cần cung cấp id home slide',
+            });
+        }
 
-        await Promise.all(
-            slides.map(async (slide) => {
-                if (slide.image) {
-                    const urlArr = slide.image.split('/');
-                    const publicIdWithExt = urlArr[urlArr.length - 1];
-                    const publicId = publicIdWithExt.split('.')[0];
-                    await cloudinary.uploader.destroy(`rubystore/${publicId}`);
-                }
-            }),
-        );
+        const homeSlides = await HomeSlideModel.find({ _id: { $in: ids } });
+        const destroyImagePromises = homeSlides.flatMap((product) => {
+            const images = product.images || [];
+            return images.map((img) => {
+                const urlArr = img.split('/');
+                const image = urlArr[urlArr.length - 1];
+                const imageName = image.split('.')[0];
+                return cloudinary.uploader.destroy(imageName);
+            });
+        });
 
-        await HomeSlideModel.deleteMany();
-        return res.status(200).json({ success: true, message: 'Đã xoá tất cả slide' });
+        await Promise.all(destroyImagePromises);
+
+        // Xoá tất cả home slide
+        await HomeSlideModel.deleteMany({ _id: { $in: ids } });
+        return res.status(200).json({
+            success: true,
+            message: 'Xoá home slide thành công',
+        });
     } catch (error) {
-        console.error('Delete all slides error:', error);
-        return res.status(500).json({ success: false, message: error.message });
+        return res.status(500).json({
+            success: false,
+            message: error,
+        });
     }
 };
 
-export { createHomeSlideImage, getHomeSlide, getAllHomeSlides, updateHomeSlide, deleteHomeSlide, deleteAllHomeSlides };
+export {
+    createHomeSlideImage,
+    getHomeSlide,
+    getAllHomeSlides,
+    updateHomeSlide,
+    deleteHomeSlide,
+    deleteMultipleHomeSlide,
+};

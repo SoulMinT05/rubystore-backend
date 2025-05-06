@@ -100,6 +100,12 @@ const productSchema = mongoose.Schema(
             type: Date,
             default: Date.now,
         },
+        banners: [
+            {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: 'banner',
+            },
+        ],
     },
     {
         timestamps: true,

@@ -4,7 +4,7 @@ import { verifyAccessToken } from '../ middlewares/verifyToken.js';
 import upload from '../ middlewares/multer.js';
 import {
     createHomeSlideImage,
-    deleteAllHomeSlides,
+    deleteMultipleHomeSlide,
     deleteHomeSlide,
     getAllHomeSlides,
     getHomeSlide,
@@ -13,7 +13,7 @@ import {
 
 const homeSlideRouter = Router();
 
-homeSlideRouter.delete('/deleteMultiple/:id', verifyAccessToken, deleteAllHomeSlides);
+homeSlideRouter.delete('/deleteMultipleHomeSlides', verifyAccessToken, deleteMultipleHomeSlide);
 
 homeSlideRouter.post('/create', verifyAccessToken, upload.single('image'), createHomeSlideImage);
 homeSlideRouter.get('/all-home-slides', getAllHomeSlides);
