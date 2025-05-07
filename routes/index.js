@@ -4,6 +4,7 @@ import productRouter from './ProductRouter.js';
 import staffRouter from './StaffRouter.js';
 import homeSlideRouter from './HomeSlideRouter.js';
 import bannerRouter from './BannerRouter.js';
+import blogRouter from './BlogRouter.js';
 
 const route = (app) => {
     app.use('/api/user', userRouter);
@@ -12,6 +13,7 @@ const route = (app) => {
     app.use('/api/staff', staffRouter);
     app.use('/api/homeSlide', homeSlideRouter);
     app.use('/api/banner', bannerRouter);
+    app.use('/api/blog', blogRouter);
 };
 
 export default route;
