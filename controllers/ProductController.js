@@ -1298,6 +1298,85 @@ const updateProductSize = async (req, res) => {
     }
 };
 
+const filterProducts = async (req, res) => {
+    const { categoryId, subCategoryId, thirdSubCategoryId, minPrice, maxPrice, rating, page, limit } = req.body;
+
+    const filters = {};
+    if (categoryId?.length) {
+        filters.categoryId = { $in: categoryId };
+    }
+    if (subCategoryId?.length) {
+        filters.subCategoryId = { $in: subCategoryId };
+    }
+    if (thirdSubCategoryId?.length) {
+        filters.thirdSubCategoryId = { $in: thirdSubCategoryId };
+    }
+    if (minPrice || maxPrice) {
+        filters.price = {
+            $gte: +minPrice || 0,
+            $lte: +maxPrice || Infinity,
+        };
+    }
+    if (rating?.length) {
+        filters.rating = { $in: rating };
+    }
+    try {
+        const products = await ProductModel.find(filters)
+            .populate('category')
+            .skip((page - 1) * limit)
+            .limit(parseInt(limit));
+        const total = await ProductModel.countDocuments(filters);
+
+        return res.status(200).json({
+            success: true,
+            products,
+            total,
+            page: parseInt(page),
+            totalPages: Math.ceil(total / limit),
+        });
+    } catch (error) {
+        return res.status(500).json({
+            message: error.message || error,
+            success: false,
+        });
+    }
+};
+
+const sortByCriteria = (products, sortBy, order) => {
+    if (!Array.isArray(products)) {
+        console.error('Products is not an array:', products);
+        return [];
+    }
+    return products.sort((a, b) => {
+        if (sortBy === 'name') {
+            return order === 'asc' ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name);
+        }
+        if (sortBy === 'price') {
+            return order === 'asc' ? a.price - b.price : b.price - a.price;
+        }
+        return 0;
+    });
+};
+
+const sortProducts = async (req, res) => {
+    try {
+        const { products, sortBy, order } = req.body;
+        const sortedProducts = sortByCriteria([...products], sortBy, order);
+
+        return res.status(200).json({
+            success: true,
+            products: sortedProducts,
+            page: 0,
+            totalPages: 0,
+        });
+    } catch (error) {
+        return res.status(500).json({
+            message: error.message || error,
+            success: false,
+        });
+    }
+};
+
 export {
     createProduct,
     createProductRam,
@@ -1332,4 +1411,6 @@ export {
     updateProductRam,
     updateProductWeight,
     updateProductSize,
+    filterProducts,
+    sortProducts,
 };
