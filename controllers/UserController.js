@@ -141,7 +141,7 @@ const verifyEmail = async (req, res) => {
         const isNotExpired = user.otpExpires > Date.now();
 
         if (isCodeValid && isNotExpired) {
-            user.isVerifyEmail = true;
+            user.emailVerified = true;
             user.otp = null;
             user.otpExpires = null;
             await user.save();
@@ -184,7 +184,7 @@ const login = async (req, res) => {
                 message: 'Tài khoản không hoạt động. Hãy liên hệ nhân viên / quản lý để được hỗ trợ!',
             });
         }
-        if (!user.isVerifyEmail) {
+        if (!user.emailVerified) {
             return res.status(400).json({
                 success: false,
                 message: 'Tài khoản chưa xác thực. Hãy xác thực tài khoản!',
@@ -230,6 +230,91 @@ const login = async (req, res) => {
     } catch (error) {
         return res.status(500).json({
             er: 'Lỗi nè',
+            message: error.message || error,
+            success: false,
+        });
+    }
+};
+const authWithGoogle = async (req, res) => {
+    const { name, email, avatar, phoneNumber, role } = req.body;
+    try {
+        const existingUser = await UserModel.findOne({ email });
+        if (!existingUser) {
+            const user = await UserModel.create({
+                name,
+                phoneNumber,
+                email,
+                password: 'null',
+                avatar,
+                role,
+                emailVerified: true,
+                signUpWithGoogle: true,
+            });
+            await user.save();
+
+            const accessToken = await generateAccessToken(existingUser._id, existingUser.role);
+            const refreshToken = await generateRefreshToken(existingUser._id);
+
+            await UserModel.findByIdAndUpdate(existingUser?._id, {
+                lastLoginDate: new Date(),
+            });
+
+            const cookiesOptionAccessToken = {
+                secure: true, // Dùng HTTPS
+                sameSite: 'Strict',
+                maxAge: 10 * 60 * 1000, // 10 phút (đổi theo bạn config expiresIn bên JW
+            };
+            const cookiesOptionRefreshToken = {
+                httpOnly: true,
+                secure: true,
+                sameSite: 'Strict',
+                maxAge: 7 * 24 * 60 * 60 * 1000, // 7 ngày
+            };
+            res.cookie('accessToken', accessToken, cookiesOptionAccessToken);
+            res.cookie('refreshToken', refreshToken, cookiesOptionRefreshToken);
+
+            return res.status(200).json({
+                success: true,
+                message: 'Đăng nhập bằng email thành công',
+                data: {
+                    accessToken,
+                    refreshToken,
+                },
+            });
+        } else {
+            const accessToken = await generateAccessToken(existingUser._id, existingUser.role);
+            const refreshToken = await generateRefreshToken(existingUser._id);
+
+            await UserModel.findByIdAndUpdate(existingUser?._id, {
+                lastLoginDate: new Date(),
+                emailVerified: true,
+            });
+
+            const cookiesOptionAccessToken = {
+                secure: true, // Dùng HTTPS
+                sameSite: 'Strict',
+                maxAge: 10 * 60 * 1000, // 10 phút (đổi theo bạn config expiresIn bên JW
+            };
+            const cookiesOptionRefreshToken = {
+                httpOnly: true,
+                secure: true,
+                sameSite: 'Strict',
+                maxAge: 7 * 24 * 60 * 60 * 1000, // 7 ngày
+            };
+            res.cookie('accessToken', accessToken, cookiesOptionAccessToken);
+            res.cookie('refreshToken', refreshToken, cookiesOptionRefreshToken);
+
+            return res.status(200).json({
+                success: true,
+                message: 'Đăng nhập bằng email thành công',
+                data: {
+                    accessToken,
+                    refreshToken,
+                },
+            });
+        }
+    } catch (error) {
+        return res.status(500).json({
             message: error.message || error,
             success: false,
         });
@@ -478,6 +563,7 @@ const resetPassword = async (req, res) => {
                 message: 'Email không hợp lệ',
             });
         }
+
         if (password !== confirmPassword) {
             return res.status(400).json({
                 success: false,
@@ -507,10 +593,10 @@ const changePassword = async (req, res) => {
     try {
         const { email, oldPassword, password, confirmPassword } = req.body;
 
-        if (!email || !oldPassword || !password || !confirmPassword) {
+        if (!email || !password || !confirmPassword) {
             return res.status(400).json({
                 success: false,
-                message: 'Vui lòng điền đầy đủ mật khẩu cũ, mật khẩu mới, xác nhận mật khẩu.',
+                message: 'Vui lòng điền đầy đủ mật khẩu mới, xác nhận mật khẩu.',
             });
         }
 
@@ -522,12 +608,14 @@ const changePassword = async (req, res) => {
             });
         }
 
-        const isMatch = await bcryptjs.compare(oldPassword, user.password);
-        if (!isMatch) {
-            return res.status(400).json({
-                success: false,
-                message: 'Mật khẩu cũ không đúng.',
-            });
+        if (user?.signUpWithGoogle === false) {
+            const isMatch = await bcryptjs.compare(oldPassword, user.password);
+            if (!isMatch) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Mật khẩu cũ không đúng.',
+                });
+            }
         }
 
         if (password !== confirmPassword) {
@@ -542,6 +630,7 @@ const changePassword = async (req, res) => {
 
         await UserModel.findByIdAndUpdate(user._id, {
             password: hashPassword,
+            signUpWithGoogle: false,
         });
 
         return res.status(200).json({
@@ -964,6 +1053,7 @@ export {
     register,
     verifyEmail,
     login,
+    authWithGoogle,
     logout,
     uploadAvatar,
     removeImageFromCloudinary,

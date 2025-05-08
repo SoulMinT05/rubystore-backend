@@ -142,7 +142,7 @@ const verifyEmail = async (req, res) => {
         const isNotExpired = user.otpExpires > Date.now();
 
         if (isCodeValid && isNotExpired) {
-            user.isVerifyEmail = true;
+            user.emailVerified = true;
             user.otp = null;
             user.otpExpires = null;
             await user.save();
@@ -185,7 +185,7 @@ const login = async (req, res) => {
                 message: 'Tài khoản không hoạt động. Hãy liên hệ nhân viên / quản lý để được hỗ trợ!',
             });
         }
-        if (!user.isVerifyEmail) {
+        if (!user.emailVerified) {
             return res.status(400).json({
                 success: false,
                 message: 'Tài khoản chưa xác thực. Hãy xác thực tài khoản!',

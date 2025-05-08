@@ -22,7 +22,7 @@ const staffSchema = mongoose.Schema(
             type: String,
             default: null,
         },
-        isVerifyEmail: {
+        emailVerified: {
             type: Boolean,
             default: false,
         },
@@ -68,6 +68,10 @@ const staffSchema = mongoose.Schema(
             type: String,
             enum: ['admin', 'staff'],
             default: 'staff',
+        },
+        signUpWithGoogle: {
+            type: Boolean,
+            default: false,
         },
     },
     {

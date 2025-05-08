@@ -22,7 +22,7 @@ const userSchema = mongoose.Schema(
             type: String,
             default: null,
         },
-        isVerifyEmail: {
+        emailVerified: {
             type: Boolean,
             default: false,
         },
@@ -109,6 +109,10 @@ const userSchema = mongoose.Schema(
             type: String,
             enum: ['admin', 'staff', 'user'],
             default: 'user',
+        },
+        signUpWithGoogle: {
+            type: Boolean,
+            default: false,
         },
     },
     {
