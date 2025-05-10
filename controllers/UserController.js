@@ -252,10 +252,10 @@ const authWithGoogle = async (req, res) => {
             });
             await user.save();
 
-            const accessToken = await generateAccessToken(existingUser._id, existingUser.role);
-            const refreshToken = await generateRefreshToken(existingUser._id);
+            const accessToken = await generateAccessToken(user._id, user.role);
+            const refreshToken = await generateRefreshToken(user._id);
 
-            await UserModel.findByIdAndUpdate(existingUser?._id, {
+            await UserModel.findByIdAndUpdate(user?._id, {
                 lastLoginDate: new Date(),
             });
 
@@ -307,6 +307,92 @@ const authWithGoogle = async (req, res) => {
             return res.status(200).json({
                 success: true,
                 message: 'Đăng nhập bằng email thành công',
+                data: {
+                    accessToken,
+                    refreshToken,
+                },
+            });
+        }
+    } catch (error) {
+        return res.status(500).json({
+            message: error.message || error,
+            success: false,
+        });
+    }
+};
+
+const authWithFacebook = async (req, res) => {
+    const { name, email, avatar, phoneNumber, role } = req.body;
+    try {
+        const existingUser = await UserModel.findOne({ email });
+        if (!existingUser) {
+            const user = await UserModel.create({
+                name,
+                phoneNumber,
+                email,
+                password: 'null',
+                avatar,
+                role,
+                emailVerified: true,
+                signInWithFacebook: true,
+            });
+            await user.save();
+
+            const accessToken = await generateAccessToken(user._id, user.role);
+            const refreshToken = await generateRefreshToken(user._id);
+
+            await UserModel.findByIdAndUpdate(user?._id, {
+                lastLoginDate: new Date(),
+            });
+
+            const cookiesOptionAccessToken = {
+                secure: true, // Dùng HTTPS
+                sameSite: 'Strict',
+                maxAge: 10 * 60 * 1000, // 10 phút (đổi theo bạn config expiresIn bên JW
+            };
+            const cookiesOptionRefreshToken = {
+                httpOnly: true,
+                secure: true,
+                sameSite: 'Strict',
+                maxAge: 7 * 24 * 60 * 60 * 1000, // 7 ngày
+            };
+            res.cookie('accessToken', accessToken, cookiesOptionAccessToken);
+            res.cookie('refreshToken', refreshToken, cookiesOptionRefreshToken);
+
+            return res.status(200).json({
+                success: true,
+                message: 'Đăng nhập bằng facebook thành công',
+                data: {
+                    accessToken,
+                    refreshToken,
+                },
+            });
+        } else {
+            const accessToken = await generateAccessToken(existingUser._id, existingUser.role);
+            const refreshToken = await generateRefreshToken(existingUser._id);
+
+            await UserModel.findByIdAndUpdate(existingUser?._id, {
+                lastLoginDate: new Date(),
+                emailVerified: true,
+            });
+
+            const cookiesOptionAccessToken = {
+                secure: true, // Dùng HTTPS
+                sameSite: 'Strict',
+                maxAge: 10 * 60 * 1000, // 10 phút (đổi theo bạn config expiresIn bên JW
+            };
+            const cookiesOptionRefreshToken = {
+                httpOnly: true,
+                secure: true,
+                sameSite: 'Strict',
+                maxAge: 7 * 24 * 60 * 60 * 1000, // 7 ngày
+            };
+            res.cookie('accessToken', accessToken, cookiesOptionAccessToken);
+            res.cookie('refreshToken', refreshToken, cookiesOptionRefreshToken);
+
+            return res.status(200).json({
+                success: true,
+                message: 'Đăng nhập bằng facebook thành công',
                 data: {
                     accessToken,
                     refreshToken,
@@ -608,7 +694,7 @@ const changePassword = async (req, res) => {
             });
         }
 
-        if (user?.signUpWithGoogle === false) {
+        if (!user?.signUpWithGoogle && !user?.signInWithFacebook) {
             const isMatch = await bcryptjs.compare(oldPassword, user.password);
             if (!isMatch) {
                 return res.status(400).json({
@@ -631,6 +717,7 @@ const changePassword = async (req, res) => {
         await UserModel.findByIdAndUpdate(user._id, {
             password: hashPassword,
             signUpWithGoogle: false,
+            signInWithFacebook: false,
         });
 
         return res.status(200).json({
@@ -1054,6 +1141,7 @@ export {
     verifyEmail,
     login,
     authWithGoogle,
+    authWithFacebook,
     logout,
     uploadAvatar,
     removeImageFromCloudinary,

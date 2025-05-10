@@ -27,6 +27,7 @@ import {
     changePassword,
     updateAddress,
     authWithGoogle,
+    authWithFacebook,
 } from '../controllers/UserController.js';
 import { verifyAccessToken } from '../ middlewares/verifyToken.js';
 import upload from '../ middlewares/multer.js';
@@ -37,6 +38,7 @@ userRouter.post('/register', register);
 userRouter.post('/verify-email', verifyEmail);
 userRouter.post('/login', login);
 userRouter.post('/auth-google', authWithGoogle);
+userRouter.post('/auth-facebook', authWithFacebook);
 userRouter.post('/logout', verifyAccessToken, logout);
 userRouter.put('/avatar', verifyAccessToken, upload.single('avatar'), uploadAvatar);
 userRouter.delete('/delete-image', verifyAccessToken, removeImageFromCloudinary);

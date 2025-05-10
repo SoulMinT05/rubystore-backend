@@ -114,6 +114,10 @@ const userSchema = mongoose.Schema(
             type: Boolean,
             default: false,
         },
+        signInWithFacebook: {
+            type: Boolean,
+            default: false,
+        },
     },
     {
         timestamps: true,
