@@ -28,6 +28,9 @@ import {
     updateAddress,
     authWithGoogle,
     authWithFacebook,
+    getDetailsReview,
+    addReview,
+    getReviews,
 } from '../controllers/UserController.js';
 import { verifyAccessToken } from '../ middlewares/verifyToken.js';
 import upload from '../ middlewares/multer.js';
@@ -56,7 +59,7 @@ userRouter.get('/checkIsRefreshToken', checkIsRefreshToken);
 userRouter.post('/addToCart', verifyAccessToken, addToCart);
 userRouter.post('/decreaseQuantityCart', verifyAccessToken, decreaseQuantityCart);
 userRouter.post('/removeProductCart', verifyAccessToken, removeProductCart);
-userRouter.get('/', verifyAccessToken, getCart);
+userRouter.get('/cart', verifyAccessToken, getCart);
 
 // WISHLIST
 userRouter.post('/addToWishlist', verifyAccessToken, addToWishlist);
@@ -66,4 +69,8 @@ userRouter.get('/getWishlist', verifyAccessToken, getWishlist);
 // ADDRESS
 userRouter.put('/update-address', verifyAccessToken, updateAddress);
 
+// REVIEW
+userRouter.post('/addReview', verifyAccessToken, addReview);
+userRouter.get('/all-reviews', getReviews);
+userRouter.get('/reviews/:productId', getDetailsReview);
 export default userRouter;

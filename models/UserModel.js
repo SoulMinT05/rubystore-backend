@@ -72,7 +72,10 @@ const userSchema = mongoose.Schema(
                 },
             },
         ],
-
+        review: {
+            type: mongoose.Schema.ObjectId,
+            ref: 'review',
+        },
         shoppingCart: [
             {
                 product: {

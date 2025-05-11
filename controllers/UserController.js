@@ -9,6 +9,7 @@ import generateAccessToken from '../utils/generateAccessToken.js';
 import generateRefreshToken from '../utils/generateRefreshToken.js';
 
 import { v2 as cloudinary } from 'cloudinary';
+import ReviewModel from '../models/ReviewModel.js';
 
 cloudinary.config({
     cloud_name: process.env.CLOUDINARY_NAME,
@@ -1136,6 +1137,81 @@ const updateAddress = async (req, res) => {
     }
 };
 
+// REVIEWS
+const addReview = async (req, res) => {
+    try {
+        const userId = req.user._id;
+        const { comment, rating, productId } = req.body;
+
+        const newReview = new ReviewModel({
+            userId,
+            productId,
+            comment,
+            rating,
+        });
+        await newReview.save();
+
+        // Bước 2: Thêm đánh giá vào danh sách `reviews` của sản phẩm
+        await ProductModel.findByIdAndUpdate(productId, {
+            $push: { review: newReview._id },
+        });
+
+        // Bước 3: Lấy lại toàn bộ đánh giá để tính lại trung bình
+        const reviews = await ReviewModel.find({ productId });
+        const totalRating = reviews.reduce((acc, review) => acc + Number(review.rating), 0);
+        const averageRating = (totalRating / reviews.length).toFixed(1);
+
+        // Bước 4: Cập nhật lại thông tin rating cho Product
+        await ProductModel.findByIdAndUpdate(productId, {
+            averageRating,
+            reviewCount: reviews.length,
+        });
+
+        return res.status(200).json({
+            success: true,
+            message: 'Đánh giá thành công',
+            newReview,
+            averageRating,
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: 'Lỗi server: ' + error.message,
+        });
+    }
+};
+const getDetailsReview = async (req, res) => {
+    try {
+        const { productId } = req.params;
+        if (!productId) {
+            return res.status(400).json({ message: 'ID sản phẩm không hợp lệ.' });
+        }
+
+        // const reviews = await ReviewModel.find({ productId }).populate('userId', '-refreshToken -password'); // Lấy thông tin user
+        const product = await ProductModel.findById(productId).populate({
+            path: 'review',
+            populate: {
+                path: 'userId',
+                select: '-refreshToken -password',
+            },
+        });
+        res.status(200).json({ success: true, product });
+    } catch (error) {
+        console.error('Lỗi khi lấy danh sách review:', error.message);
+        res.status(500).json({ message: 'Lỗi server khi lấy đánh giá.' });
+    }
+};
+
+const getReviews = async (req, res) => {
+    try {
+        const reviews = await ReviewModel.find().populate('userId', '-refreshToken -password'); // Lấy thông tin user
+        res.status(200).json({ success: true, reviews });
+    } catch (error) {
+        console.error('Lỗi khi lấy danh sách review:', error.message);
+        res.status(500).json({ message: 'Lỗi server khi lấy đánh giá.' });
+    }
+};
+
 export {
     register,
     verifyEmail,
@@ -1165,4 +1241,8 @@ export {
     getWishlist,
     // address
     updateAddress,
+    // review
+    addReview,
+    getDetailsReview,
+    getReviews,
 };

@@ -62,6 +62,20 @@ const productSchema = mongoose.Schema(
             type: Number,
             // required: true,
         },
+        averageRating: {
+            type: Number,
+            default: 0,
+        },
+        reviewCount: {
+            type: Number,
+            default: 0,
+        },
+        review: [
+            {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: 'review',
+            },
+        ],
         rating: {
             type: Number,
             default: 4,
