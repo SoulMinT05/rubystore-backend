@@ -1078,6 +1078,45 @@ const removeProductCart = async (req, res) => {
     }
 };
 
+const deleteMultipleCartItems = async (req, res) => {
+    try {
+        const userId = req.user._id;
+        const { cartIds } = req.body;
+
+        if (!Array.isArray(cartIds) || cartIds.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Danh sách cartId không hợp lệ',
+            });
+        }
+
+        const user = await UserModel.findById(userId);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy người dùng',
+            });
+        }
+
+        // Lọc bỏ các sản phẩm có _id nằm trong cartIds
+        user.shoppingCart = user.shoppingCart.filter((item) => !cartIds.includes(item._id.toString()));
+
+        await user.save();
+
+        return res.status(200).json({
+            success: true,
+            message: 'Đã xoá các sản phẩm khỏi giỏ hàng',
+            cart: user.shoppingCart,
+        });
+    } catch (error) {
+        console.error('Lỗi khi xoá nhiều item:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Lỗi server: ' + error.message,
+        });
+    }
+};
+
 // WISHLIST
 const addToWishlist = async (req, res) => {
     try {
@@ -1312,6 +1351,7 @@ export {
     addToCart,
     decreaseQuantityCart,
     removeProductCart,
+    deleteMultipleCartItems,
     getCart,
     // wishlist
     addToWishlist,
