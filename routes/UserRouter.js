@@ -31,6 +31,7 @@ import {
     getDetailsReview,
     addReview,
     getReviews,
+    updateCartItemSize,
 } from '../controllers/UserController.js';
 import { verifyAccessToken } from '../ middlewares/verifyToken.js';
 import upload from '../ middlewares/multer.js';
@@ -56,6 +57,7 @@ userRouter.get('/check-login', checkLogin);
 userRouter.get('/checkIsRefreshToken', checkIsRefreshToken);
 
 // CART
+userRouter.post('/updateCartItemSize', verifyAccessToken, updateCartItemSize);
 userRouter.post('/addToCart', verifyAccessToken, addToCart);
 userRouter.post('/decreaseQuantityCart', verifyAccessToken, decreaseQuantityCart);
 userRouter.post('/removeProductCart', verifyAccessToken, removeProductCart);

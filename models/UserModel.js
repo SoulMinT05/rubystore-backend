@@ -82,7 +82,20 @@ const userSchema = mongoose.Schema(
                     type: mongoose.Schema.ObjectId,
                     ref: 'product',
                 },
-                quantity: {
+                name: String,
+                price: {
+                    type: Number,
+                },
+                oldPrice: {
+                    type: Number,
+                },
+                images: [
+                    {
+                        type: String,
+                    },
+                ],
+                sizeProduct: String,
+                quantityProduct: {
                     type: Number,
                     default: 1,
                 },
@@ -124,7 +137,7 @@ const userSchema = mongoose.Schema(
     },
     {
         timestamps: true,
-    },
+    }
 );
 
 const UserModel = mongoose.model('user', userSchema);

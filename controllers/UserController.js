@@ -54,7 +54,7 @@ const register = async (req, res) => {
                         email: user.email,
                         id: user._id,
                     },
-                    process.env.JSON_WEB_TOKEN_SECRET_KEY,
+                    process.env.JSON_WEB_TOKEN_SECRET_KEY
                 );
 
                 return res.status(200).json({
@@ -82,7 +82,7 @@ const register = async (req, res) => {
             email,
             '[From RubyStore] Xác minh địa chỉ email',
             '',
-            verifyEmailHtml(name, message, verifyCode),
+            verifyEmailHtml(name, message, verifyCode)
         );
 
         // Lưu thông tin người dùng vào database
@@ -100,7 +100,7 @@ const register = async (req, res) => {
                 email: user.email,
                 id: user._id,
             },
-            process.env.JSON_WEB_TOKEN_SECRET_KEY,
+            process.env.JSON_WEB_TOKEN_SECRET_KEY
         );
 
         return res.status(200).json({
@@ -428,7 +428,7 @@ const logout = async (req, res) => {
             {
                 refreshToken: '',
             },
-            { new: true },
+            { new: true }
         );
         return res.status(200).json({
             success: true,
@@ -530,7 +530,7 @@ const updateInfoUser = async (req, res) => {
                 phoneNumber,
                 password: hashPassword,
             },
-            { new: true },
+            { new: true }
         );
 
         return res.status(200).json({
@@ -564,7 +564,7 @@ const forgotPassword = async (req, res) => {
                 otp: verifyCode,
                 otpExpires: Date.now() + 600000,
             },
-            { new: true },
+            { new: true }
         );
 
         const message = 'xin cấp lại mật khẩu mới';
@@ -572,7 +572,7 @@ const forgotPassword = async (req, res) => {
             email,
             '[From RubyStore] Xác minh địa chỉ email',
             '',
-            verifyEmailHtml(user?.name, message, verifyCode),
+            verifyEmailHtml(user?.name, message, verifyCode)
         );
 
         return res.status(200).json({
@@ -813,6 +813,7 @@ const checkLogin = async (req, res) => {
             message: 'Người dùng chưa đăng nhập',
         });
     }
+    console.log('Người dùng đã đăng nhập - checkLogin');
     try {
         jwt.verify(accessToken, process.env.SECRET_KEY_ACCESS_TOKEN);
         return res.status(200).json({
@@ -851,15 +852,34 @@ const checkIsRefreshToken = async (req, res) => {
 };
 
 // CART
-const addToCart = async (req, res) => {
+
+const getCart = async (req, res) => {
     try {
         const userId = req.user._id;
-        const { productId } = req.body;
+        const user = await UserModel.findById(userId).select('shoppingCart').populate({
+            path: 'shoppingCart.product',
+        });
+        return res.status(200).json({
+            success: true,
+            cart: user,
+        });
+    } catch (error) {
+        return res.status(500).json({
+            message: error.message || error,
+            success: false,
+        });
+    }
+};
 
-        if (!productId) {
+const updateCartItemSize = async (req, res) => {
+    try {
+        const userId = req.user._id;
+        const { productId, oldSize, newSize } = req.body;
+
+        if (!productId || !oldSize || !newSize) {
             return res.status(400).json({
                 success: false,
-                message: 'Thiếu productId',
+                message: 'Thiếu productId, oldSize hoặc newSize',
             });
         }
 
@@ -871,19 +891,95 @@ const addToCart = async (req, res) => {
             });
         }
 
-        const cartItemIndex = user.shoppingCart.findIndex((item) => item.product.toString() === productId);
+        // Tìm item hiện tại cần đổi size (A)
+        const currentIndex = user.shoppingCart.findIndex(
+            (item) => item.product.toString() === productId && item.sizeProduct === oldSize
+        );
+        if (currentIndex === -1) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy sản phẩm phù hợp để đổi size',
+            });
+        }
+
+        const currentItem = user.shoppingCart[currentIndex];
+        // Tìm item khác cùng productId + newSize (B nếu có)
+        const newIndex = user.shoppingCart.findIndex(
+            (item, idx) => item.product.toString() === productId && item.sizeProduct === newSize && idx !== currentIndex
+        );
+        if (newIndex !== -1) {
+            // Nếu đã có size mới trong cart → cộng dồn quantity và xoá item cũ
+            user.shoppingCart[newIndex].quantityProduct += currentItem.quantityProduct;
+            user.shoppingCart.splice(currentIndex, 1);
+        } else {
+            // Nếu chưa có size mới → chỉ cập nhật size
+            user.shoppingCart[currentIndex].sizeProduct = newSize;
+        }
+
+        await user.save();
+
+        return res.status(200).json({
+            success: true,
+            shoppingCart: user.shoppingCart,
+            message: 'Cập nhật size thành công',
+        });
+    } catch (error) {
+        console.error('Lỗi updateCartItemSize:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Lỗi server: ' + error.message,
+        });
+    }
+};
+
+const addToCart = async (req, res) => {
+    try {
+        const userId = req.user._id;
+        const { productId, sizeProduct, quantityProduct } = req.body;
+
+        if (!productId || !sizeProduct) {
+            return res.status(400).json({
+                success: false,
+                message: 'Thiếu productId hoặc size',
+            });
+        }
+        const quantity = parseInt(quantityProduct, 10) || 1;
+
+        const user = await UserModel.findById(userId);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy người dùng',
+            });
+        }
+
+        const cartItemIndex = user.shoppingCart.findIndex(
+            (item) => item.product.toString() === productId && item.sizeProduct === sizeProduct
+        );
 
         let message = '';
         if (cartItemIndex !== -1) {
-            // Tăng số lượng nếu sản phẩm đã có trong giỏ
-            user.shoppingCart[cartItemIndex].quantity += 1;
-            message = 'Tăng số lượng sản phẩm trong giỏ hàng';
+            user.shoppingCart[cartItemIndex].quantityProduct += quantity;
+            message = 'Tăng số lượng sản phẩm cùng size trong giỏ hàng';
         } else {
-            // Thêm mới sản phẩm nếu chưa có
+            const product = await ProductModel.findById(productId).lean();
+            if (!product) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Không tìm thấy sản phẩm',
+                });
+            }
             user.shoppingCart.push({
-                product: productId,
-                quantity: 1,
+                product: product._id,
+                name: product.name,
+                brand: product.brand,
+                price: product.price,
+                oldPrice: product.oldPrice,
+                images: product.images,
+                sizeProduct,
+                quantityProduct: quantity,
             });
+
             message = 'Thêm sản phẩm vào giỏ hàng thành công';
         }
 
@@ -924,8 +1020,8 @@ const decreaseQuantityCart = async (req, res) => {
             });
         }
 
-        if (user.shoppingCart[index].quantity > 1) {
-            user.shoppingCart[index].quantity -= 1;
+        if (user.shoppingCart[index].quantityProduct > 1) {
+            user.shoppingCart[index].quantityProduct -= 1;
         } else {
             // Nếu quantity = 1 => xóa khỏi giỏ
             user.shoppingCart.splice(index, 1);
@@ -966,7 +1062,7 @@ const removeProductCart = async (req, res) => {
                     shoppingCart: { product: productId },
                 },
             },
-            { new: true },
+            { new: true }
         );
 
         return res.status(200).json({
@@ -979,24 +1075,6 @@ const removeProductCart = async (req, res) => {
         return res.status(500).json({
             success: false,
             message: 'Lỗi server: ' + error.message,
-        });
-    }
-};
-
-const getCart = async (req, res) => {
-    try {
-        const userId = req.user._id;
-        const user = await UserModel.findById(userId).select('shoppingCart').populate({
-            path: 'shoppingCart.product',
-        });
-        return res.status(200).json({
-            success: true,
-            cart: user,
-        });
-    } catch (error) {
-        return res.status(500).json({
-            message: error.message || error,
-            success: false,
         });
     }
 };
@@ -1073,7 +1151,7 @@ const removeFromWishlist = async (req, res) => {
                     wishlist: { product: productId },
                 },
             },
-            { new: true },
+            { new: true }
         );
 
         return res.status(200).json({
@@ -1231,6 +1309,7 @@ export {
     checkLogin,
     checkIsRefreshToken,
     // cart
+    updateCartItemSize,
     addToCart,
     decreaseQuantityCart,
     removeProductCart,
