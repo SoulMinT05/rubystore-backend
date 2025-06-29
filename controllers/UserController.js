@@ -1002,7 +1002,13 @@ const addToCart = async (req, res) => {
 const decreaseQuantityCart = async (req, res) => {
     try {
         const userId = req.user._id;
-        const { productId } = req.body;
+        const { productId, sizeProduct } = req.body;
+        if (!productId || !sizeProduct) {
+            return res.status(400).json({
+                success: false,
+                message: 'Thiếu productId hoặc sizeProduct',
+            });
+        }
 
         const user = await UserModel.findById(userId);
         if (!user) {
@@ -1012,7 +1018,9 @@ const decreaseQuantityCart = async (req, res) => {
             });
         }
 
-        const index = user.shoppingCart.findIndex((item) => item.product.toString() === productId);
+        const index = user.shoppingCart.findIndex(
+            (item) => item.product.toString() === productId && item.sizeProduct === sizeProduct
+        );
         if (index === -1) {
             return res.status(404).json({
                 success: false,
@@ -1046,29 +1054,20 @@ const decreaseQuantityCart = async (req, res) => {
 const removeProductCart = async (req, res) => {
     try {
         const userId = req.user._id;
-
-        const { productId } = req.body;
-        if (!productId) {
-            return res.status(400).json({
+        const { cartId } = req.body;
+        const user = await UserModel.findById(userId);
+        if (!user) {
+            return res.status(404).json({
                 success: false,
-                message: 'Thiếu productId',
+                message: 'Không tìm thấy người dùng',
             });
         }
-
-        const updatedUser = await UserModel.findByIdAndUpdate(
-            userId,
-            {
-                $pull: {
-                    shoppingCart: { product: productId },
-                },
-            },
-            { new: true }
-        );
-
+        user.shoppingCart = user.shoppingCart.filter((item) => item._id.toString() !== cartId);
+        await user.save();
         return res.status(200).json({
             success: true,
             message: 'Xoá sản phẩm khỏi giỏ hàng',
-            cart: updatedUser.shoppingCart,
+            cart: user.shoppingCart,
         });
     } catch (error) {
         console.error('Lỗi khi xoá sản phẩm khỏi giỏ hàng:', error);
