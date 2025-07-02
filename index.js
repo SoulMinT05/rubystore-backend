@@ -15,7 +15,7 @@ app.use(
     cors({
         origin: [process.env.FRONTEND_URL, process.env.FRONTEND_ADMIN_URL],
         credentials: true,
-    }),
+    })
 );
 app.use(express.json());
 app.use(cookieParser());
@@ -27,7 +27,7 @@ app.use(
     // Bảo vệ server khỏi các lỗ hổng bảo mật phổ biến
     helmet({
         crossOriginResourcePolicy: false,
-    }),
+    })
 );
 
 const port = process.env.PORT || 3001;

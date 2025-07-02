@@ -859,9 +859,28 @@ const getCart = async (req, res) => {
         const user = await UserModel.findById(userId).select('shoppingCart').populate({
             path: 'shoppingCart.product',
         });
+        // Nếu không có giỏ hàng, trả mặc định rỗng
+        const cartItems = user?.shoppingCart || [];
+
+        // Tính tổng
+        let totalQuantity = 0;
+        let totalPrice = 0;
+
+        cartItems.forEach((item) => {
+            const quantityProduct = item?.quantityProduct || 0;
+            const price = item?.price || 0;
+
+            totalQuantity += quantityProduct;
+            totalPrice += price * quantityProduct;
+        });
+
         return res.status(200).json({
             success: true,
-            cart: user,
+            cart: {
+                items: cartItems,
+                totalQuantity,
+                totalPrice,
+            },
         });
     } catch (error) {
         return res.status(500).json({
