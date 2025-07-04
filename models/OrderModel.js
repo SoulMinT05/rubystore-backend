@@ -1,54 +1,73 @@
 import mongoose from 'mongoose';
 
-const orderSchema = mongoose.Schema(
+const orderSchema = new mongoose.Schema(
     {
-        orderId: [
+        userId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'user',
+            required: true,
+        },
+        selectedCartItems: [
             {
-                type: String,
-                required: [true, 'Provide orderId'],
-                unique: true,
+                product: { type: mongoose.Schema.Types.ObjectId, ref: 'product' },
+                name: String,
+                price: Number,
+                oldPrice: Number,
+                sizeProduct: String,
+                quantityProduct: Number,
+                images: [String],
             },
         ],
-        userId: [
-            {
-                type: mongoose.Schema.ObjectId,
-                ref: 'user',
-            },
-        ],
-        productId: [
-            {
-                type: mongoose.Schema.ObjectId,
-                ref: 'product',
-            },
-        ],
-        productDetails: {
-            name: String,
-            image: Array,
+        shippingAddress: {
+            streetLine: { type: String, required: true },
+            city: { type: String, required: true },
+            district: { type: String, required: true },
+            ward: { type: String, required: true },
+            country: { type: String, default: 'Việt Nam' },
+        },
+        totalQuantity: { type: Number, required: true },
+        totalPrice: { type: Number, required: true },
+        discountType: String, // optional
+        discountValue: Number, // optional
+        finalPrice: { type: Number, required: true },
+        voucher: {
+            code: String,
+            discountType: String,
+            discountValue: Number,
         },
         paymentMethod: {
             type: String,
-            default: '',
+            enum: ['cod', 'momo', 'vnpay'],
+            required: true,
         },
         paymentStatus: {
             type: String,
+            enum: ['unpaid', 'paid', 'refunded', 'failed'],
+            default: 'unpaid',
+        },
+        orderStatus: {
+            type: String,
+            enum: ['pending', 'processing', 'shipping', 'delivered', 'cancelled', 'returned'],
+            default: 'pending',
+        },
+        shippingFee: {
+            type: Number,
+            default: 0,
+        },
+        note: {
+            type: String,
             default: '',
         },
-        deliveryAddress: {
-            type: mongoose.type.ObjectId,
-            ref: 'address',
+        deliveredAt: {
+            type: Date,
         },
-        subTotalAmount: {
-            type: Number,
-            default: 0,
-        },
-        totalAmount: {
-            type: Number,
-            default: 0,
+        paidAt: {
+            type: Date,
         },
     },
     {
         timestamps: true,
-    },
+    }
 );
 
 const OrderModel = mongoose.model('order', orderSchema);

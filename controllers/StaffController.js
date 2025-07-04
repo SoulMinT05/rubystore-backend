@@ -3,7 +3,7 @@ import StaffModel from '../models/StaffModel.js';
 import bcryptjs from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import sendAccountConfirmationEmail from '../config/sendEmail.js';
-import verifyEmailHtml from '../utils/verifyEmailHtml.js';
+import { verifyEmailHtml } from '../utils/emailHtml.js';
 import generateAccessToken from '../utils/generateAccessToken.js';
 import generateRefreshToken from '../utils/generateRefreshToken.js';
 
@@ -53,7 +53,7 @@ const register = async (req, res) => {
                         email: user.email,
                         id: user._id,
                     },
-                    process.env.JSON_WEB_TOKEN_SECRET_KEY,
+                    process.env.JSON_WEB_TOKEN_SECRET_KEY
                 );
 
                 return res.status(200).json({
@@ -81,7 +81,7 @@ const register = async (req, res) => {
             email,
             '[From RubyStore] Xác minh địa chỉ email',
             '',
-            verifyEmailHtml(name, message, verifyCode),
+            verifyEmailHtml(name, message, verifyCode)
         );
 
         // Lưu thông tin người dùng vào database
@@ -100,7 +100,7 @@ const register = async (req, res) => {
                 email: user.email,
                 id: user._id,
             },
-            process.env.JSON_WEB_TOKEN_SECRET_KEY,
+            process.env.JSON_WEB_TOKEN_SECRET_KEY
         );
 
         return res.status(200).json({
@@ -257,7 +257,7 @@ const logout = async (req, res) => {
             {
                 refreshToken: '',
             },
-            { new: true },
+            { new: true }
         );
         return res.status(200).json({
             success: true,
@@ -360,7 +360,7 @@ const updateInfoUser = async (req, res) => {
                 phoneNumber,
                 password: hashPassword,
             },
-            { new: true },
+            { new: true }
         );
 
         return res.status(200).json({
@@ -394,7 +394,7 @@ const forgotPassword = async (req, res) => {
                 otp: verifyCode,
                 otpExpires: Date.now() + 600000,
             },
-            { new: true },
+            { new: true }
         );
 
         const message = 'xin cấp lại mật khẩu mới';
@@ -402,7 +402,7 @@ const forgotPassword = async (req, res) => {
             email,
             '[From RubyStore] Xác minh địa chỉ email',
             '',
-            verifyEmailHtml(user?.name, message, verifyCode),
+            verifyEmailHtml(user?.name, message, verifyCode)
         );
 
         return res.status(200).json({

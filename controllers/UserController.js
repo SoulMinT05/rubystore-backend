@@ -4,7 +4,7 @@ import ProductModel from '../models/ProductModel.js';
 import bcryptjs from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import sendAccountConfirmationEmail from '../config/sendEmail.js';
-import verifyEmailHtml from '../utils/verifyEmailHtml.js';
+import { verifyEmailHtml } from '../utils/emailHtml.js';
 import generateAccessToken from '../utils/generateAccessToken.js';
 import generateRefreshToken from '../utils/generateRefreshToken.js';
 
@@ -979,6 +979,22 @@ const updateQuantityItemsCart = async (req, res) => {
             });
         }
 
+        // ✅ Lấy thông tin sản phẩm để kiểm tra tồn kho
+        const product = await ProductModel.findById(productId).lean();
+        if (!product) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy sản phẩm',
+            });
+        }
+
+        if (quantity > product.countInStock) {
+            return res.status(400).json({
+                success: false,
+                message: `Chỉ còn ${product.countInStock} sản phẩm trong kho`,
+            });
+        }
+
         const cartItemIndex = user.shoppingCart.findIndex(
             (item) => item.product.toString() === productId && item.sizeProduct === sizeProduct
         );
@@ -999,14 +1015,6 @@ const updateQuantityItemsCart = async (req, res) => {
                 return res.status(400).json({
                     success: false,
                     message: 'Không thể thêm sản phẩm với số lượng <= 0',
-                });
-            }
-
-            const product = await ProductModel.findById(productId).lean();
-            if (!product) {
-                return res.status(404).json({
-                    success: false,
-                    message: 'Không tìm thấy sản phẩm',
                 });
             }
 
@@ -1061,22 +1069,34 @@ const addToCart = async (req, res) => {
             });
         }
 
+        const product = await ProductModel.findById(productId).lean();
+        if (!product) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy sản phẩm',
+            });
+        }
+
         const cartItemIndex = user.shoppingCart.findIndex(
             (item) => item.product.toString() === productId && item.sizeProduct === sizeProduct
         );
 
+        // Tổng số lượng sau khi thêm
+        const currentQty = cartItemIndex !== -1 ? user.shoppingCart[cartItemIndex].quantityProduct : 0;
+        const totalAfterAdd = currentQty + quantity;
+
+        if (totalAfterAdd > product.countInStock) {
+            return res.status(400).json({
+                success: false,
+                message: `Chỉ còn ${product.countInStock} sản phẩm trong kho`,
+            });
+        }
+
         let message = '';
         if (cartItemIndex !== -1) {
-            user.shoppingCart[cartItemIndex].quantityProduct += quantity;
+            user.shoppingCart[cartItemIndex].quantityProduct = totalAfterAdd;
             message = 'Tăng số lượng sản phẩm cùng size trong giỏ hàng';
         } else {
-            const product = await ProductModel.findById(productId).lean();
-            if (!product) {
-                return res.status(404).json({
-                    success: false,
-                    message: 'Không tìm thấy sản phẩm',
-                });
-            }
             user.shoppingCart.push({
                 product: product._id,
                 name: product.name,

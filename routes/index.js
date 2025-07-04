@@ -7,6 +7,7 @@ import bannerRouter from './BannerRouter.js';
 import blogRouter from './BlogRouter.js';
 import voucherRouter from './VoucherRouter.js';
 import checkoutTokenRouter from './CheckoutTokenRouter.js';
+import orderRouter from './OrderRouter.js';
 
 const route = (app) => {
     app.use('/api/user', userRouter);
@@ -18,6 +19,7 @@ const route = (app) => {
     app.use('/api/blog', blogRouter);
     app.use('/api/voucher', voucherRouter);
     app.use('/api/checkoutToken', checkoutTokenRouter);
+    app.use('/api/order', orderRouter);
 };
 
 export default route;
