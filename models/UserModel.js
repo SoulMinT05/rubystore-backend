@@ -101,6 +101,12 @@ const userSchema = mongoose.Schema(
                 },
             },
         ],
+        checkoutToken: [
+            {
+                type: mongoose.Schema.ObjectId,
+                ref: 'checkoutToken',
+            },
+        ],
         orderHistory: [
             {
                 type: mongoose.Schema.ObjectId,
