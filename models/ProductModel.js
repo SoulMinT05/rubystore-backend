@@ -60,7 +60,6 @@ const productSchema = mongoose.Schema(
         },
         countInStock: {
             type: Number,
-            // required: true,
         },
         averageRating: {
             type: Number,
@@ -123,7 +122,7 @@ const productSchema = mongoose.Schema(
     },
     {
         timestamps: true,
-    },
+    }
 );
 
 const ProductModel = mongoose.model('product', productSchema);

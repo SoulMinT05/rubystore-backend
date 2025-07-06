@@ -51,7 +51,7 @@ const createProduct = async (req, res) => {
                 images?.map(async (img) => {
                     const uploadedImage = await cloudinary.uploader.upload(img.path); // upload ảnh lên Cloudinary (hoặc bất kỳ dịch vụ nào khác)
                     return uploadedImage.url; // trả về URL ảnh đã tải lên
-                }),
+                })
             );
         }
         const newProduct = await ProductModel.create({
@@ -1148,7 +1148,7 @@ const updateProduct = async (req, res) => {
                 productSize: req.body.productSize,
                 productWeight: req.body.productWeight,
             },
-            { new: true },
+            { new: true }
         );
 
         if (!product) {
@@ -1182,7 +1182,7 @@ const updateProduct = async (req, res) => {
                 req.files.map(async (img) => {
                     const uploadedImage = await cloudinary.uploader.upload(img.path);
                     return uploadedImage.url;
-                }),
+                })
             );
         }
         product.images = [...product.images, ...imageUrls];
@@ -1209,7 +1209,7 @@ const updateProductRam = async (req, res) => {
             {
                 name: req.body.name,
             },
-            { new: true },
+            { new: true }
         );
 
         if (!productRam) {
@@ -1241,7 +1241,7 @@ const updateProductWeight = async (req, res) => {
             {
                 name: req.body.name,
             },
-            { new: true },
+            { new: true }
         );
 
         if (!productWeight) {
@@ -1273,7 +1273,7 @@ const updateProductSize = async (req, res) => {
             {
                 name: req.body.name,
             },
-            { new: true },
+            { new: true }
         );
 
         if (!productSize) {
@@ -1299,7 +1299,18 @@ const updateProductSize = async (req, res) => {
 };
 
 const filterProducts = async (req, res) => {
-    const { categoryId, subCategoryId, thirdSubCategoryId, minPrice, maxPrice, rating, page, limit } = req.body;
+    const {
+        categoryId,
+        subCategoryId,
+        thirdSubCategoryId,
+        minPrice,
+        maxPrice,
+        rating,
+        page,
+        limit,
+        keyword,
+        stockStatus,
+    } = req.body;
 
     const filters = {};
     if (categoryId?.length) {
@@ -1320,6 +1331,26 @@ const filterProducts = async (req, res) => {
     if (rating?.length) {
         filters.rating = { $in: rating };
     }
+
+    if (stockStatus === 'available') {
+        filters.countInStock = { $gt: 0 };
+    } else if (stockStatus === 'unavailable') {
+        filters.countInStock = 0;
+    }
+
+    // ✅ Thêm lọc theo keyword (name hoặc description)
+    if (keyword && keyword.trim() !== '') {
+        const regex = new RegExp(keyword.trim(), 'i'); // không phân biệt hoa thường
+        filters.$or = [
+            { name: { $regex: regex } },
+            // { description: { $regex: regex } },
+            // { categoryName: { $regex: regex } },
+            // { subCategoryName: { $regex: regex } },
+            // { thirdSubCategoryName: { $regex: regex } },
+            // { brand: { $regex: regex } },
+        ];
+    }
+
     try {
         const products = await ProductModel.find(filters)
             .populate('category')
@@ -1377,6 +1408,63 @@ const sortProducts = async (req, res) => {
     }
 };
 
+const searchProducts = async (req, res) => {
+    try {
+        const { query } = req.query;
+
+        if (!query || query.trim() === '') {
+            return res.status(400).json({
+                success: false,
+                message: 'Thiếu từ khóa tìm kiếm',
+            });
+        }
+
+        // Regex tìm name hoặc description chứa từ khóa (không phân biệt hoa thường)
+        const regex = new RegExp(query, 'i');
+
+        const products = await ProductModel.find({
+            $or: [
+                { name: { $regex: regex } },
+                // { description: { $regex: regex } },
+                // { categoryName: { $regex: regex } },
+                // { subCategoryName: { $regex: regex } },
+                // { thirdSubCategoryName: { $regex: regex } },
+                // { brand: { $regex: regex } },
+            ],
+        });
+
+        return res.status(200).json({
+            success: true,
+            products,
+        });
+    } catch (error) {
+        return res.status(500).json({
+            message: error.message || error,
+            success: false,
+        });
+    }
+};
+
+const searchProductResults = async (req, res) => {
+    const { keyword } = req.query;
+    try {
+        const regex = new RegExp(keyword, 'i'); // không phân biệt hoa thường
+        const products = await ProductModel.find({
+            $or: [
+                { name: { $regex: regex } },
+                // { description: { $regex: regex } },
+                // { categoryName: { $regex: regex } },
+                // { subCategoryName: { $regex: regex } },
+                // { thirdSubCategoryName: { $regex: regex } },
+                // { brand: { $regex: regex } },
+            ],
+        });
+        res.status(200).json({ success: true, products });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Lỗi server' });
+    }
+};
+
 export {
     createProduct,
     createProductRam,
@@ -1413,4 +1501,6 @@ export {
     updateProductSize,
     filterProducts,
     sortProducts,
+    searchProducts,
+    searchProductResults,
 };
