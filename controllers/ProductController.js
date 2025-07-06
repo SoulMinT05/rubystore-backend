@@ -810,7 +810,9 @@ const getProductsByFeature = async (req, res) => {
     try {
         const products = await ProductModel.find({
             isFeatured: true,
-        }).populate('category');
+        })
+            .populate('category')
+            .sort({ createdAt: -1 });
 
         if (!products) {
             return res.status(500).json({
