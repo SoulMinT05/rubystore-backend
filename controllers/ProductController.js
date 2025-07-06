@@ -1,3 +1,4 @@
+import UserModel from '../models/UserModel.js';
 import ProductModel from '../models/ProductModel.js';
 import ProductRamModel from '../models/ProductRamModel.js';
 import ProductWeightModel from '../models/ProductWeightModel.js';
@@ -1445,6 +1446,60 @@ const searchProducts = async (req, res) => {
     }
 };
 
+const saveSearchHistory = async (req, res) => {
+    try {
+        const userId = req.user._id; // Lấy từ middleware verifyToken
+        const { keyword } = req.body;
+
+        if (!keyword || keyword.trim() === '') {
+            return res.status(400).json({
+                success: false,
+                message: 'Từ khóa không hợp lệ',
+            });
+        }
+
+        // Cập nhật searchHistory (thêm đầu mảng, không trùng nhau)
+        const user = await UserModel.findById(userId);
+
+        // Nếu đã tồn tại thì xóa để đưa lên đầu
+        user.searchHistory = user.searchHistory.filter((item) => item !== keyword.trim());
+        user.searchHistory.unshift(keyword.trim());
+
+        // Giới hạn lịch sử tìm kiếm tối đa 10 mục
+        user.searchHistory = user.searchHistory.slice(0, 10);
+
+        await user.save();
+
+        return res.status(200).json({
+            success: true,
+            message: 'Lưu từ khóa thành công',
+            searchHistory: user.searchHistory,
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: error.message || error,
+        });
+    }
+};
+
+const getSearchProductsHistory = async (req, res) => {
+    try {
+        const userId = req.user._id;
+        const user = await UserModel.findById(userId);
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'Không tìm thấy người dùng' });
+        }
+
+        return res.status(200).json({
+            success: true,
+            history: user.searchHistory.slice(0, 10),
+        });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error.message || 'Lỗi server' });
+    }
+};
+
 const searchProductResults = async (req, res) => {
     const { keyword } = req.query;
     try {
@@ -1502,5 +1557,7 @@ export {
     filterProducts,
     sortProducts,
     searchProducts,
+    saveSearchHistory,
+    getSearchProductsHistory,
     searchProductResults,
 };

@@ -113,6 +113,11 @@ const userSchema = mongoose.Schema(
                 ref: 'order',
             },
         ],
+        searchHistory: [
+            {
+                type: String,
+            },
+        ],
         otp: {
             type: String,
         },
