@@ -1,4 +1,5 @@
 import UserModel from '../models/UserModel.js';
+import StaffModel from '../models/StaffModel.js';
 import ProductModel from '../models/ProductModel.js';
 import OrderModel from '../models/OrderModel.js';
 import CheckoutTokenModel from '../models/CheckoutTokenModel.js';
@@ -103,7 +104,7 @@ const createOrder = async (req, res) => {
     }
 };
 
-const getAllOrders = async (req, res) => {
+const getAllOrdersFromUser = async (req, res) => {
     try {
         const userId = req.user._id;
         const user = await UserModel.findById(userId);
@@ -114,6 +115,28 @@ const getAllOrders = async (req, res) => {
             });
         }
         const orders = await OrderModel.find({ userId }).populate('userId').sort({ createdAt: -1 });
+        return res.status(200).json({
+            success: true,
+            orders,
+        });
+    } catch (error) {
+        console.error('getAllOrders error:', error);
+        return res.status(500).json({ success: false, message: 'Lỗi máy chủ' });
+    }
+};
+
+const getAllOrdersFromAdmin = async (req, res) => {
+    try {
+        const userId = req.user._id;
+        const user = await StaffModel.findById(userId);
+
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy người dùng',
+            });
+        }
+        const orders = await OrderModel.find().populate('userId');
         return res.status(200).json({
             success: true,
             orders,
@@ -252,4 +275,78 @@ const updateOrderStatusByAdmin = async (req, res) => {
     }
 };
 
-export { createOrder, getAllOrders, getDetailsOrder, cancelOrderFromUser, updateOrderStatusByAdmin };
+const deleteDetailsOrderFromAdmin = async (req, res) => {
+    try {
+        const userId = req.user._id;
+        const user = await StaffModel.findById(userId);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy người dùng',
+            });
+        }
+        const { orderId } = req.params;
+        const order = await OrderModel.findByIdAndDelete(orderId);
+        if (!order) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy đơn hàng',
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: 'Xóa đơn hàng thành công',
+            order,
+        });
+    } catch (error) {
+        console.error('deleteDetailsOrder error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Lỗi máy chủ',
+        });
+    }
+};
+
+const deleteMultipleOrdersFromAdmin = async (req, res) => {
+    try {
+        const userId = req.user._id;
+        const user = await StaffModel.findById(userId);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy người dùng',
+            });
+        }
+        const { orderIds } = req.body;
+        if (!Array.isArray(orderIds) || orderIds.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Danh sách đơn hàng không hợp lệ',
+            });
+        }
+
+        const result = await OrderModel.deleteMany({ _id: { $in: orderIds } });
+        return res.status(200).json({
+            success: true,
+            message: `Đã xóa ${result.deletedCount} đơn hàng`,
+        });
+    } catch (error) {
+        console.error('deleteMultipleOrdersFromAdmin error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Lỗi máy chủ',
+        });
+    }
+};
+
+export {
+    createOrder,
+    getAllOrdersFromUser,
+    getAllOrdersFromAdmin,
+    getDetailsOrder,
+    cancelOrderFromUser,
+    updateOrderStatusByAdmin,
+    deleteDetailsOrderFromAdmin,
+    deleteMultipleOrdersFromAdmin,
+};

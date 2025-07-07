@@ -3,7 +3,10 @@ import { Router } from 'express';
 import {
     cancelOrderFromUser,
     createOrder,
-    getAllOrders,
+    deleteDetailsOrderFromAdmin,
+    deleteMultipleOrdersFromAdmin,
+    getAllOrdersFromAdmin,
+    getAllOrdersFromUser,
     getDetailsOrder,
     updateOrderStatusByAdmin,
 } from '../controllers/OrderController.js';
@@ -15,7 +18,10 @@ orderRouter.post('/createOrder', verifyAccessToken, createOrder);
 orderRouter.post('/cancelOrderFromUser', verifyAccessToken, cancelOrderFromUser);
 orderRouter.put('/updateOrderStatusByAdmin', verifyAccessToken, updateOrderStatusByAdmin);
 
+orderRouter.get('/ordersFromAdmin', verifyAccessToken, getAllOrdersFromAdmin);
+orderRouter.delete('/deleteMultipleOrdersFromAdmin', verifyAccessToken, deleteMultipleOrdersFromAdmin);
 orderRouter.post('/:orderId', verifyAccessToken, getDetailsOrder);
-orderRouter.get('/', verifyAccessToken, getAllOrders);
+orderRouter.delete('/:orderId', verifyAccessToken, deleteDetailsOrderFromAdmin);
+orderRouter.get('/', verifyAccessToken, getAllOrdersFromUser);
 
 export default orderRouter;
