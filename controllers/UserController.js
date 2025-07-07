@@ -1455,6 +1455,138 @@ const getReviews = async (req, res) => {
         res.status(500).json({ message: 'Lỗi server khi lấy đánh giá.' });
     }
 };
+const getUsersFromAdmin = async (req, res) => {
+    try {
+        const users = await UserModel.find().select('-password -refreshToken'); // Lấy thông tin user
+        res.status(200).json({ success: true, users });
+    } catch (error) {
+        console.error('Lỗi khi lấy danh sách review:', error.message);
+        res.status(500).json({ message: 'Lỗi server khi lấy đánh giá.' });
+    }
+};
+const deleteUserFromAdmin = async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const user = await UserModel.findByIdAndDelete(userId);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy người dùng',
+            });
+        }
+
+        res.status(200).json({ success: true, message: 'Xóa người dùng thành công', user });
+    } catch (error) {
+        console.error('Lỗi khi lấy danh sách review:', error.message);
+        res.status(500).json({ message: 'Lỗi server khi lấy đánh giá.' });
+    }
+};
+
+const deleteMultipleUsersFromAdmin = async (req, res) => {
+    try {
+        const { userIds } = req.body;
+        if (!Array.isArray(userIds) || userIds.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Danh sách đơn hàng không hợp lệ',
+            });
+        }
+
+        const result = await UserModel.deleteMany({ _id: { $in: userIds } });
+        return res.status(200).json({
+            success: true,
+            message: `Đã xóa ${result.deletedCount} đơn hàng`,
+        });
+    } catch (error) {
+        console.error('Lỗi khi lấy danh sách review:', error.message);
+        res.status(500).json({ message: 'Lỗi server khi lấy đánh giá.' });
+    }
+};
+
+const getUserDetailsFromAdmin = async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const user = await UserModel.findById(userId).select('-password -refreshToken');
+        if (!user) {
+            return res.status(400).json({
+                success: false,
+                message: 'Không tìm thấy người dùng',
+            });
+        }
+        return res.status(200).json({
+            success: true,
+            message: 'Thông tin người dùng',
+            user,
+        });
+    } catch (error) {
+        return res.status(500).json({
+            message: error.message || error,
+            success: false,
+        });
+    }
+};
+
+const toggleUserLockStatus = async (req, res) => {
+    try {
+        const { userId } = req.params;
+
+        const user = await UserModel.findById(userId);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy người dùng',
+            });
+        }
+
+        // Toggle trạng thái isLocked
+        user.isLocked = !user.isLocked;
+        await user.save();
+
+        return res.status(200).json({
+            success: true,
+            message: `Tài khoản đã được ${user.isLocked ? 'khóa' : 'mở khóa'}`,
+            isLocked: user.isLocked,
+        });
+    } catch (error) {
+        console.error('Lỗi khi đổi trạng thái khóa người dùng:', error.message);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi server khi đổi trạng thái khóa người dùng.',
+        });
+    }
+};
+const updateUserInfoFromAdmin = async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const { name, phoneNumber, address } = req.body;
+
+        const user = await UserModel.findById(userId);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy người dùng',
+            });
+        }
+
+        if (name) user.name = name;
+        if (phoneNumber) user.phoneNumber = phoneNumber;
+        if (address) user.address = address;
+
+        await user.save();
+
+        return res.status(200).json({
+            success: true,
+            message: 'Cập nhật thông tin người dùng thành công',
+            user,
+        });
+    } catch (error) {
+        console.error('Lỗi khi cập nhật thông tin người dùng:', error.message);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi server khi cập nhật thông tin người dùng.',
+        });
+    }
+};
 
 export {
     register,
@@ -1492,4 +1624,11 @@ export {
     addReview,
     getDetailsReview,
     getReviews,
+    // FOR ADMIN
+    getUsersFromAdmin,
+    deleteUserFromAdmin,
+    deleteMultipleUsersFromAdmin,
+    getUserDetailsFromAdmin,
+    toggleUserLockStatus,
+    updateUserInfoFromAdmin,
 };

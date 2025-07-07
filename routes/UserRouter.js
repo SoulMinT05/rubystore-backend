@@ -34,12 +34,24 @@ import {
     updateCartItemSize,
     deleteMultipleCartItems,
     updateQuantityItemsCart,
+    getUsersFromAdmin,
+    deleteUserFromAdmin,
+    deleteMultipleUsersFromAdmin,
+    getUserDetailsFromAdmin,
+    toggleUserLockStatus,
+    updateUserInfoFromAdmin,
 } from '../controllers/UserController.js';
 import { verifyAccessToken } from '../ middlewares/verifyToken.js';
 import upload from '../ middlewares/multer.js';
 
 const userRouter = Router();
 
+// REVIEW
+userRouter.get('/reviews/:productId', getDetailsReview);
+userRouter.post('/addReview', verifyAccessToken, addReview);
+userRouter.get('/all-reviews', getReviews);
+
+// USER
 userRouter.post('/register', register);
 userRouter.post('/verify-email', verifyEmail);
 userRouter.post('/login', login);
@@ -75,8 +87,13 @@ userRouter.get('/getWishlist', verifyAccessToken, getWishlist);
 // ADDRESS
 userRouter.put('/update-address', verifyAccessToken, updateAddress);
 
-// REVIEW
-userRouter.post('/addReview', verifyAccessToken, addReview);
-userRouter.get('/all-reviews', getReviews);
-userRouter.get('/reviews/:productId', getDetailsReview);
+// FOR ADMIN
+userRouter.delete('/deleteUserFromAdmin/:userId', verifyAccessToken, deleteUserFromAdmin);
+userRouter.get('/userDetailsFromAdmin/:userId', verifyAccessToken, getUserDetailsFromAdmin);
+userRouter.patch('/toggleUserLockStatus/:userId', verifyAccessToken, toggleUserLockStatus);
+userRouter.put('/updateUserInfoFromAdmin/:userId', verifyAccessToken, updateUserInfoFromAdmin);
+
+userRouter.get('/usersFromAdmin', verifyAccessToken, getUsersFromAdmin);
+userRouter.delete('/deleteMultipleUsersFromAdmin', verifyAccessToken, deleteMultipleUsersFromAdmin);
+
 export default userRouter;
