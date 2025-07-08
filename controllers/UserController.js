@@ -1488,14 +1488,15 @@ const deleteMultipleUsersFromAdmin = async (req, res) => {
         if (!Array.isArray(userIds) || userIds.length === 0) {
             return res.status(400).json({
                 success: false,
-                message: 'Danh sách đơn hàng không hợp lệ',
+                message: 'Danh sách người dùng không hợp lệ',
             });
         }
 
         const result = await UserModel.deleteMany({ _id: { $in: userIds } });
         return res.status(200).json({
             success: true,
-            message: `Đã xóa ${result.deletedCount} đơn hàng`,
+            message: `Đã xóa ${result.deletedCount} người dùng`,
+            userIds,
         });
     } catch (error) {
         console.error('Lỗi khi lấy danh sách review:', error.message);
@@ -1558,7 +1559,7 @@ const toggleUserLockStatus = async (req, res) => {
 const updateUserInfoFromAdmin = async (req, res) => {
     try {
         const { userId } = req.params;
-        const { name, phoneNumber, address } = req.body;
+        const { name, phoneNumber, streetLine, ward, district, city } = req.body;
 
         const user = await UserModel.findById(userId);
         if (!user) {
@@ -1568,9 +1569,32 @@ const updateUserInfoFromAdmin = async (req, res) => {
             });
         }
 
+        // ✅ Cập nhật avatar nếu có file mới
+        if (req.file) {
+            // Nếu đã có avatar trước đó → xoá ảnh cũ khỏi Cloudinary
+            if (user.avatar) {
+                const urlArr = user.avatar.split('/');
+                const publicIdWithExt = urlArr[urlArr.length - 1]; // abc123.jpg
+                const publicId = publicIdWithExt.split('.')[0]; // abc123
+                await cloudinary.uploader.destroy(`rubystore/${publicId}`);
+            }
+
+            // Upload ảnh mới
+            const result = await cloudinary.uploader.upload(req.file.path, {
+                folder: 'rubystore',
+            });
+            user.avatar = result.secure_url;
+        }
+
+        // ✅ Cập nhật thông tin
         if (name) user.name = name;
         if (phoneNumber) user.phoneNumber = phoneNumber;
-        if (address) user.address = address;
+        user.address = {
+            streetLine: streetLine || user.address?.streetLine || '',
+            ward: ward || user.address?.ward || '',
+            district: district || user.address?.district || '',
+            city: city || user.address?.city || '',
+        };
 
         await user.save();
 
@@ -1578,12 +1602,72 @@ const updateUserInfoFromAdmin = async (req, res) => {
             success: true,
             message: 'Cập nhật thông tin người dùng thành công',
             user,
+            userId,
         });
     } catch (error) {
         console.error('Lỗi khi cập nhật thông tin người dùng:', error.message);
         res.status(500).json({
             success: false,
             message: 'Lỗi server khi cập nhật thông tin người dùng.',
+        });
+    }
+};
+
+const addUserFromAdmin = async (req, res) => {
+    try {
+        const { name, email, phoneNumber, password, streetLine, ward, district, city } = req.body;
+
+        if (!name || !email) {
+            return res.status(400).json({
+                success: false,
+                message: 'Vui lòng nhập đầy đủ tên, email và mật khẩu',
+            });
+        }
+
+        const existingUser = await UserModel.findOne({ email });
+        if (existingUser) {
+            return res.status(409).json({
+                success: false,
+                message: 'Email đã được sử dụng',
+            });
+        }
+
+        const lastPassword = password || 'Xinchaorubystore_123';
+        const hashedPassword = await bcryptjs.hash(lastPassword, 10);
+
+        let avatarUrl = '';
+        if (req.file) {
+            // Upload ảnh lên Cloudinary
+            const result = await cloudinary.uploader.upload(req.file.path, {
+                folder: 'rubystore',
+            });
+            avatarUrl = result.secure_url;
+        }
+
+        const newUser = await UserModel.create({
+            name,
+            email,
+            password: hashedPassword,
+            phoneNumber,
+            avatar: avatarUrl,
+            address: {
+                streetLine,
+                ward,
+                district,
+                city,
+            },
+        });
+
+        res.status(201).json({
+            success: true,
+            message: 'Thêm người dùng thành công',
+            user: newUser,
+        });
+    } catch (error) {
+        console.error('Lỗi khi tạo người dùng:', error.message);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi server khi tạo người dùng',
         });
     }
 };
@@ -1631,4 +1715,5 @@ export {
     getUserDetailsFromAdmin,
     toggleUserLockStatus,
     updateUserInfoFromAdmin,
+    addUserFromAdmin,
 };
