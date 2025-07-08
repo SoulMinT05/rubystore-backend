@@ -695,14 +695,283 @@ const updateAddress = async (req, res) => {
             country: country || user.address?.country || 'Việt Nam',
         };
 
-        console.log('user.address: ', user.address);
-
         await user.save();
 
         res.status(200).json({ success: true, message: 'Cập nhật địa chỉ thành công', address: user.address });
     } catch (error) {
         console.error('Lỗi khi cập nhật địa chỉ:', error);
         res.status(500).json({ success: false, message: 'Đã xảy ra lỗi khi cập nhật địa chỉ', error });
+    }
+};
+
+const addStaffFromAdmin = async (req, res) => {
+    try {
+        const { name, email, phoneNumber, password, streetLine, ward, district, city, role = 'staff' } = req.body;
+
+        if (!name || !email) {
+            return res.status(400).json({
+                success: false,
+                message: 'Vui lòng nhập đầy đủ tên, email và mật khẩu',
+            });
+        }
+
+        const existingStaff = await StaffModel.findOne({ email });
+        if (existingStaff) {
+            return res.status(409).json({
+                success: false,
+                message: 'Email đã được sử dụng',
+            });
+        }
+
+        const lastPassword = password || 'Xinchaorubystore_123';
+        const hashedPassword = await bcryptjs.hash(lastPassword, 10);
+
+        let avatarUrl = '';
+        if (req.file) {
+            // Upload ảnh lên Cloudinary
+            const result = await cloudinary.uploader.upload(req.file.path, {
+                folder: 'rubystore',
+            });
+            avatarUrl = result.secure_url;
+        }
+
+        const newStaff = await StaffModel.create({
+            name,
+            email,
+            password: hashedPassword,
+            phoneNumber,
+            avatar: avatarUrl,
+            address: {
+                streetLine,
+                ward,
+                district,
+                city,
+            },
+            role,
+        });
+
+        res.status(201).json({
+            success: true,
+            message: 'Thêm nhân viên thành công',
+            staff: newStaff,
+        });
+    } catch (error) {
+        console.error('Lỗi khi tạo nhân viên:', error.message);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi server khi tạo nhân viên',
+        });
+    }
+};
+
+const updateStaffInfoFromAdmin = async (req, res) => {
+    try {
+        const { staffId } = req.params;
+        const { name, phoneNumber, streetLine, ward, district, city } = req.body;
+
+        const staff = await StaffModel.findById(staffId);
+        if (!staff) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy người dùng',
+            });
+        }
+
+        // ✅ Không cho cập nhật admin khác
+        if (staff.role !== 'staff' && req.user._id.toString() !== staffId.toString()) {
+            return res.status(403).json({
+                success: false,
+                message: 'Không có quyền cập nhật thông tin nhân viên khác',
+            });
+        }
+
+        // ✅ Cập nhật avatar nếu có file mới
+        if (req.file) {
+            // Nếu đã có avatar trước đó → xoá ảnh cũ khỏi Cloudinary
+            if (staff.avatar) {
+                const urlArr = staff.avatar.split('/');
+                const publicIdWithExt = urlArr[urlArr.length - 1]; // abc123.jpg
+                const publicId = publicIdWithExt.split('.')[0]; // abc123
+                await cloudinary.uploader.destroy(`rubystore/${publicId}`);
+            }
+
+            // Upload ảnh mới
+            const result = await cloudinary.uploader.upload(req.file.path, {
+                folder: 'rubystore',
+            });
+            staff.avatar = result.secure_url;
+        }
+
+        // ✅ Cập nhật thông tin
+        if (name) staff.name = name;
+        if (phoneNumber) staff.phoneNumber = phoneNumber;
+        staff.address = {
+            streetLine: streetLine || staff.address?.streetLine || '',
+            ward: ward || staff.address?.ward || '',
+            district: district || staff.address?.district || '',
+            city: city || staff.address?.city || '',
+        };
+
+        await staff.save();
+
+        return res.status(200).json({
+            success: true,
+            message: 'Cập nhật thông tin người dùng thành công',
+            staff,
+            staffId,
+        });
+    } catch (error) {
+        console.error('Lỗi khi cập nhật thông tin người dùng:', error.message);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi server khi cập nhật thông tin người dùng.',
+        });
+    }
+};
+
+const toggleStaffLockStatusFromAdmin = async (req, res) => {
+    try {
+        const { staffId } = req.params;
+
+        const staff = await StaffModel.findById(staffId);
+        if (!staff) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy người dùng',
+            });
+        }
+
+        if (req.user._id.toString() === staffId.toString()) {
+            return res.status(403).json({
+                success: false,
+                message: 'Không thể tự khóa chính mình',
+            });
+        }
+
+        // ✅ Không cho cập nhật admin khác
+        if (staff.role !== 'staff') {
+            return res.status(403).json({
+                success: false,
+                message: 'Chỉ được phép khóa nhân viên',
+            });
+        }
+
+        // Toggle trạng thái isLocked
+        staff.isLocked = !staff.isLocked;
+        await staff.save();
+
+        return res.status(200).json({
+            success: true,
+            message: `Tài khoản đã được ${staff.isLocked ? 'khóa' : 'mở khóa'}`,
+            isLocked: staff.isLocked,
+        });
+    } catch (error) {
+        console.error('Lỗi khi đổi trạng thái khóa người dùng:', error.message);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi server khi đổi trạng thái khóa người dùng.',
+        });
+    }
+};
+
+const getStaffOrAdminDetails = async (req, res) => {
+    try {
+        const { staffId } = req.params;
+        const staff = await StaffModel.findById(staffId).select('-password -refreshToken');
+        if (!staff) {
+            return res.status(400).json({
+                success: false,
+                message: 'Không tìm thấy người dùng',
+            });
+        }
+        return res.status(200).json({
+            success: true,
+            message: 'Thông tin người dùng',
+            staff,
+        });
+    } catch (error) {
+        return res.status(500).json({
+            message: error.message || error,
+            success: false,
+        });
+    }
+};
+
+const deleteMultipleStaffsFromAdmin = async (req, res) => {
+    try {
+        const { staffIds } = req.body;
+        if (!Array.isArray(staffIds) || staffIds.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Danh sách nhân viên không hợp lệ',
+            });
+        }
+
+        const currentUserId = req.user._id.toString();
+        const hasSelfDelete = staffIds.some((id) => id.toString() === currentUserId);
+        if (hasSelfDelete) {
+            return res.status(403).json({
+                success: false,
+                message: 'Không thể xóa chính tài khoản của bạn',
+            });
+        }
+
+        const result = await StaffModel.deleteMany({
+            _id: { $in: staffIds },
+            role: 'staff',
+        });
+        return res.status(200).json({
+            success: true,
+            message: `Đã xóa ${result.deletedCount} nhân viên`,
+            staffIds,
+        });
+    } catch (error) {
+        console.error('Lỗi khi lấy danh sách review:', error.message);
+        res.status(500).json({ message: 'Lỗi server khi lấy đánh giá.' });
+    }
+};
+
+const deleteStaffFromAdmin = async (req, res) => {
+    try {
+        const { staffId } = req.params;
+        const staff = await StaffModel.findById(staffId);
+        if (!staff) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy người dùng',
+            });
+        }
+
+        if (req.user._id.toString() === staffId.toString()) {
+            return res.status(403).json({
+                success: false,
+                message: 'Không thể tự xóa chính mình',
+            });
+        }
+
+        if (staff.role !== 'staff') {
+            return res.status(403).json({
+                success: false,
+                message: 'Chỉ được phép xóa tài khoản nhân viên',
+            });
+        }
+
+        await StaffModel.findByIdAndDelete(staffId);
+
+        res.status(200).json({ success: true, message: 'Xóa người dùng thành công', staff });
+    } catch (error) {
+        console.error('Lỗi khi lấy danh sách review:', error.message);
+        res.status(500).json({ message: 'Lỗi server khi lấy đánh giá.' });
+    }
+};
+
+const getStaffsAndAdmin = async (req, res) => {
+    try {
+        const staffs = await StaffModel.find().select('-password -refreshToken'); // Lấy thông tin user
+        res.status(200).json({ success: true, staffs });
+    } catch (error) {
+        console.error('Lỗi khi lấy danh sách review:', error.message);
+        res.status(500).json({ message: 'Lỗi server khi lấy đánh giá.' });
     }
 };
 
@@ -724,4 +993,12 @@ export {
     checkIsRefreshToken,
     // address
     updateAddress,
+    // FOR ADMIN
+    addStaffFromAdmin,
+    updateStaffInfoFromAdmin,
+    toggleStaffLockStatusFromAdmin,
+    getStaffOrAdminDetails,
+    deleteMultipleStaffsFromAdmin,
+    deleteStaffFromAdmin,
+    getStaffsAndAdmin,
 };
