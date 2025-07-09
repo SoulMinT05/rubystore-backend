@@ -65,4 +65,65 @@ const getDashboardStatistics = async (req, res) => {
     }
 };
 
-export { getDashboardStatistics };
+const getMonthlyStatisticsBarChart = async (req, res) => {
+    try {
+        const currentYear = new Date().getFullYear();
+
+        // Tổng người dùng theo tháng
+        const users = await UserModel.aggregate([
+            {
+                $match: {
+                    createdAt: {
+                        $gte: new Date(`${currentYear}-01-01`),
+                        $lt: new Date(`${currentYear + 1}-01-01`),
+                    },
+                },
+            },
+            {
+                $group: {
+                    _id: { $month: '$createdAt' },
+                    totalUsers: { $sum: 1 },
+                },
+            },
+        ]);
+
+        // Tổng doanh thu theo tháng
+        const orders = await OrderModel.aggregate([
+            {
+                $match: {
+                    createdAt: {
+                        $gte: new Date(`${currentYear}-01-01`),
+                        $lt: new Date(`${currentYear + 1}-01-01`),
+                    },
+                    $or: [{ orderStatus: 'delivered' }, { paymentStatus: 'paid' }],
+                },
+            },
+            {
+                $group: {
+                    _id: { $month: '$createdAt' },
+                    totalRevenue: { $sum: '$finalPrice' },
+                },
+            },
+        ]);
+
+        // Gộp data 12 tháng
+        const stats = Array.from({ length: 12 }, (_, i) => {
+            const month = i + 1;
+            const userData = users.find((u) => u._id === month);
+            const orderData = orders.find((o) => o._id === month);
+
+            return {
+                name: `Tháng ${month}`,
+                'Tổng người dùng': userData?.totalUsers || 0,
+                'Tổng doanh thu': orderData?.totalRevenue || 0,
+            };
+        });
+
+        res.json({ success: true, barChartData: stats });
+    } catch (error) {
+        console.error('getMonthlyStatistics error:', error);
+        res.status(500).json({ success: false, message: 'Lỗi server' });
+    }
+};
+
+export { getDashboardStatistics, getMonthlyStatisticsBarChart };
