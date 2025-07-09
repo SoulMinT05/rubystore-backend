@@ -9,6 +9,7 @@ const voucherSchema = new mongoose.Schema(
         expiresAt: { type: Date, required: true }, // thời hạn sử dụng
         isActive: { type: Boolean, default: true },
         isUsed: { type: Boolean, default: false },
+        quantityVoucher: { type: Number, default: 0 },
     },
     {
         timestamps: true,

@@ -2,6 +2,7 @@ import UserModel from '../models/UserModel.js';
 import StaffModel from '../models/StaffModel.js';
 import ProductModel from '../models/ProductModel.js';
 import OrderModel from '../models/OrderModel.js';
+import VoucherModel from '../models/VoucherModel.js';
 import CheckoutTokenModel from '../models/CheckoutTokenModel.js';
 import sendAccountConfirmationEmail from '../config/sendEmail.js';
 import { createOrderEmailHtml } from '../utils/emailHtml.js';
@@ -41,6 +42,33 @@ const createOrder = async (req, res) => {
 
         const paymentStatus = paymentMethod === 'cod' ? 'unpaid' : 'paid';
 
+        // ✅ Nếu có dùng voucher → kiểm tra hạn sử dụng
+        if (token.voucher?.code) {
+            const voucherInDB = await VoucherModel.findOne({ code: token.voucher.code });
+
+            if (!voucherInDB) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Voucher không tồn tại',
+                });
+            }
+
+            const now = new Date();
+            if (new Date(voucherInDB.expiresAt) < now) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Voucher đã hết hạn sử dụng',
+                });
+            }
+
+            if (!voucherInDB.isActive || voucherInDB.quantityVoucher <= 0) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Voucher không còn hiệu lực',
+                });
+            }
+        }
+
         // Tạo đơn hàng
         const orderData = await OrderModel.create({
             userId,
@@ -58,6 +86,19 @@ const createOrder = async (req, res) => {
         });
         if (token.voucher && token.voucher.code) {
             orderData.voucher = token.voucher;
+
+            // Trừ quantityVoucher -1
+            const existingVoucher = await VoucherModel.findOne({ code: token.voucher.code });
+            if (existingVoucher && existingVoucher.quantityVoucher > 0) {
+                existingVoucher.quantityVoucher -= 1;
+
+                // Nếu đã hết → có thể cập nhật isActive = false (tuỳ bạn)
+                if (existingVoucher.quantityVoucher <= 0) {
+                    existingVoucher.isActive = false;
+                }
+
+                await existingVoucher.save();
+            }
         }
 
         const newOrder = await OrderModel.create(orderData);
