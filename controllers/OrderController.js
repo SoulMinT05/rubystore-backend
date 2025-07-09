@@ -306,6 +306,7 @@ const updateOrderStatusByAdmin = async (req, res) => {
             success: true,
             message: 'Cập nhật trạng thái đơn hàng thành công',
             order,
+            orderId,
         });
     } catch (error) {
         console.error('updateOrderStatusByAdmin error:', error);

@@ -14,9 +14,9 @@ import { verifyAccessToken } from '../ middlewares/verifyToken.js';
 
 const orderRouter = Router();
 
+orderRouter.patch('/updateOrderStatusByAdmin/:orderId', verifyAccessToken, updateOrderStatusByAdmin);
 orderRouter.post('/createOrder', verifyAccessToken, createOrder);
 orderRouter.post('/cancelOrderFromUser', verifyAccessToken, cancelOrderFromUser);
-orderRouter.put('/updateOrderStatusByAdmin', verifyAccessToken, updateOrderStatusByAdmin);
 
 orderRouter.get('/ordersFromAdmin', verifyAccessToken, getAllOrdersFromAdmin);
 orderRouter.delete('/deleteMultipleOrdersFromAdmin', verifyAccessToken, deleteMultipleOrdersFromAdmin);
