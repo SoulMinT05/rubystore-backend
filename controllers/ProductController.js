@@ -60,7 +60,8 @@ const createProduct = async (req, res) => {
             images: imageUrls,
             description,
             brand,
-            price,
+            price:
+                price !== undefined ? price : oldPrice && discount ? oldPrice - (oldPrice * discount) / 100 : oldPrice,
             oldPrice,
             categoryName,
             categoryId,
@@ -1127,29 +1128,61 @@ const removeImageFromCloudinary = async (req, res) => {
 
 const updateProduct = async (req, res) => {
     try {
+        const {
+            name,
+            description,
+            brand,
+            price,
+            oldPrice,
+            categoryName,
+            categoryId,
+            category,
+            subCategoryId,
+            subCategoryName,
+            thirdSubCategoryId,
+            thirdSubCategoryName,
+            countInStock,
+            rating,
+            isFeatured,
+            isPublished,
+            discount,
+            productRam,
+            productSize,
+            productWeight,
+        } = req.body;
+
+        const numericOldPrice = Number(oldPrice);
+        const numericDiscount = Number(discount);
+        const numericPrice =
+            price !== undefined
+                ? Number(price)
+                : numericOldPrice && numericDiscount
+                ? numericOldPrice - (numericOldPrice * numericDiscount) / 100
+                : numericOldPrice;
+
         const product = await ProductModel.findByIdAndUpdate(
             req.params.id,
             {
-                name: req.body.name,
-                description: req.body.description,
-                brand: req.body.brand,
-                price: req.body.price,
-                oldPrice: req.body.oldPrice,
-                categoryName: req.body.categoryName,
-                categoryId: req.body.categoryId,
-                category: req.body.category,
-                subCategoryId: req.body.subCategoryId,
-                subCategoryName: req.body.subCategoryName,
-                thirdSubCategoryId: req.body.thirdSubCategoryId,
-                thirdSubCategoryName: req.body.thirdSubCategoryName,
-                countInStock: req.body.countInStock,
-                rating: req.body.rating,
-                isFeatured: req.body.isFeatured,
-                isPublished: req.body.isPublished,
-                discount: req.body.discount,
-                productRam: req.body.productRam,
-                productSize: req.body.productSize,
-                productWeight: req.body.productWeight,
+                name,
+                description,
+                brand,
+                price: numericPrice,
+                oldPrice: numericOldPrice,
+                categoryName,
+                categoryId,
+                category,
+                subCategoryId,
+                subCategoryName,
+                thirdSubCategoryId,
+                thirdSubCategoryName,
+                countInStock,
+                rating,
+                isFeatured,
+                isPublished,
+                discount: numericDiscount,
+                productRam,
+                productSize,
+                productWeight,
             },
             { new: true }
         );
@@ -1161,23 +1194,35 @@ const updateProduct = async (req, res) => {
             });
         }
 
-        // --- Xoá ảnh cũ nếu có deletedImages ---
-        const deletedImages = req.body.deletedImages || []; // array các URL cần xoá
+        let deletedImages = [];
+        try {
+            const raw = req.body.deletedImages;
+            deletedImages = Array.isArray(raw) ? raw : typeof raw === 'string' ? JSON.parse(raw) : [];
+        } catch (e) {
+            console.warn('Không thể parse deletedImages:', e);
+            deletedImages = [];
+        }
 
+        // --- Xoá ảnh cũ nếu có deletedImages ---
         if (deletedImages.length > 0) {
             product.images = product.images.filter((img) => !deletedImages.includes(img));
 
-            //     // Xoá ảnh khỏi cloudinary
-            //     for (const url of deletedImages) {
-            //         const urlArr = url.split('/');
-            //         const imageWithExt = urlArr[urlArr.length - 1];
-            //         const publicId = imageWithExt.split('.')[0];
-
-            //         if (publicId) {
-            //             await cloudinary.uploader.destroy(publicId);
-            //         }
-            //     }
+            await Promise.all(
+                deletedImages.map(async (url) => {
+                    try {
+                        const urlArr = url.split('/');
+                        const imageWithExt = urlArr[urlArr.length - 1];
+                        const publicId = imageWithExt.split('.')[0];
+                        if (publicId) {
+                            await cloudinary.uploader.destroy(publicId);
+                        }
+                    } catch (err) {
+                        console.warn(`Không thể xoá ảnh Cloudinary: ${url}`, err);
+                    }
+                })
+            );
         }
+
         let imageUrls = [];
 
         if (req.files && req.files.length > 0) {
