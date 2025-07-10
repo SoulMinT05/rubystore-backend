@@ -10,7 +10,7 @@ import generateRefreshToken from '../utils/generateRefreshToken.js';
 
 import { v2 as cloudinary } from 'cloudinary';
 import ReviewModel from '../models/ReviewModel.js';
-import { emitNewReview } from '../config/socket.js';
+import { emitDeleteReply, emitDeleteReview, emitNewReply, emitNewReview } from '../config/socket.js';
 
 cloudinary.config({
     cloud_name: process.env.CLOUDINARY_NAME,
@@ -1452,6 +1452,11 @@ const addReplyToReview = async (req, res) => {
         // Lấy reply mới nhất
         const newReply = populatedReview.replies[populatedReview.replies.length - 1];
 
+        emitNewReply({
+            reviewId,
+            newReply,
+        });
+
         res.status(200).json({ success: true, message: 'Phản hồi thành công', review, reviewId, newReply });
     } catch (err) {
         console.error('addReplyToReview error:', err);
@@ -1481,6 +1486,8 @@ const deleteReview = async (req, res) => {
         }
 
         await ReviewModel.findByIdAndDelete(reviewId);
+
+        emitDeleteReview(reviewId);
 
         return res.status(200).json({
             success: true,
@@ -1512,10 +1519,11 @@ const deleteReplyFromReview = async (req, res) => {
         if (!review) {
             return res.status(404).json({ success: false, message: 'Không tìm thấy đánh giá' });
         }
-        console.log('review: ', review);
 
         review.replies = review.replies.filter((r) => r._id.toString() !== replyId);
         await review.save();
+
+        emitDeleteReply({ reviewId, replyId });
 
         return res.status(200).json({ success: true, message: 'Xóa phản hồi thành công' });
     } catch (error) {

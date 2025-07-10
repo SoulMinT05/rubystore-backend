@@ -45,6 +45,16 @@ export const emitNewReply = (replyData) => {
     io.emit('newReply', replyData);
 };
 
+export const emitDeleteReview = (reviewData) => {
+    if (!io) throw new Error('Socket.io not initialized');
+    io.emit('deletedReview', reviewData);
+};
+
+export const emitDeleteReply = (replyData) => {
+    if (!io) throw new Error('Socket.io not initialized');
+    io.emit('deletedReply', replyData);
+};
+
 export const getIO = () => {
     if (!io) throw new Error('Socket.io not initialized');
     return io;
