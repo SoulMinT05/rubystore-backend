@@ -1,3 +1,8 @@
+// SOCKET IO
+import { Server } from 'socket.io';
+import http from 'http';
+import { initSocket } from './config/socket.js';
+
 import express from 'express';
 import cors from 'cors';
 import bodyParser from 'body-parser';
@@ -22,13 +27,20 @@ app.use(cookieParser());
 app.use(bodyParser.json({ type: 'application/*+json' }));
 app.use(bodyParser.urlencoded({ extended: true }));
 
-app.use(morgan()); //Ghi log request đến server
+// app.use(morgan()); //Ghi log request đến server
+if (process.env.NODE_ENV === 'development') {
+    app.use(morgan('dev'));
+}
+
 app.use(
     // Bảo vệ server khỏi các lỗ hổng bảo mật phổ biến
     helmet({
         crossOriginResourcePolicy: false,
     })
 );
+
+const server = http.createServer(app); // tạo HTTP server từ app
+initSocket(server);
 
 const port = process.env.PORT || 3001;
 
@@ -39,7 +51,7 @@ app.get('/', (req, res) => {
 });
 
 dbConnect().then(() => {
-    app.listen(port, () => {
+    server.listen(port, () => {
         console.log('Server is running in ' + port);
     });
 });

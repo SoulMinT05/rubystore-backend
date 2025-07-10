@@ -813,7 +813,6 @@ const checkLogin = async (req, res) => {
             message: 'Người dùng chưa đăng nhập',
         });
     }
-    console.log('Người dùng đã đăng nhập - checkLogin');
     try {
         jwt.verify(accessToken, process.env.SECRET_KEY_ACCESS_TOKEN);
         return res.status(200).json({

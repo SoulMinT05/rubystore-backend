@@ -6,6 +6,7 @@ import VoucherModel from '../models/VoucherModel.js';
 import CheckoutTokenModel from '../models/CheckoutTokenModel.js';
 import sendAccountConfirmationEmail from '../config/sendEmail.js';
 import { createOrderEmailHtml } from '../utils/emailHtml.js';
+import { emitOrderStatusUpdated } from '../config/socket.js';
 
 const createOrder = async (req, res) => {
     try {
@@ -177,7 +178,7 @@ const getAllOrdersFromAdmin = async (req, res) => {
                 message: 'Không tìm thấy người dùng',
             });
         }
-        const orders = await OrderModel.find().populate('userId');
+        const orders = await OrderModel.find().populate('userId').sort({ createdAt: -1 });
         return res.status(200).json({
             success: true,
             orders,
@@ -265,6 +266,9 @@ const cancelOrderFromUser = async (req, res) => {
             await user.save();
         }
 
+        // Emit event socket
+        emitOrderStatusUpdated(orderId.toString(), 'cancelled');
+
         return res.status(200).json({
             success: true,
             message: 'Hủy đơn hàng thành công',
@@ -301,6 +305,9 @@ const updateOrderStatusByAdmin = async (req, res) => {
 
         order.orderStatus = newStatus;
         await order.save();
+
+        // Emit event socket
+        emitOrderStatusUpdated(orderId.toString(), newStatus);
 
         return res.status(200).json({
             success: true,

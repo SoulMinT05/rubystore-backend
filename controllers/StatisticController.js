@@ -7,6 +7,8 @@ import VoucherModel from '../models/VoucherModel.js';
 import BlogModel from '../models/BlogModel.js';
 import ReviewModel from '../models/ReviewModel.js';
 
+import { getOnlineUsers } from '../config/socket.js';
+
 import { v2 as cloudinary } from 'cloudinary';
 
 cloudinary.config({
@@ -41,11 +43,13 @@ const getDashboardStatistics = async (req, res) => {
             },
         ]);
         const totalRevenue = totalRevenueResult[0]?.finalPrice || 0;
+        const onlineUsers = getOnlineUsers();
 
         return res.status(200).json({
             success: true,
             statistics: {
                 totalUsers,
+                onlineUsers,
                 totalStaffs,
                 totalProducts,
                 totalCategories,
