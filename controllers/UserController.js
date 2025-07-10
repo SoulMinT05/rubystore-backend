@@ -10,6 +10,7 @@ import generateRefreshToken from '../utils/generateRefreshToken.js';
 
 import { v2 as cloudinary } from 'cloudinary';
 import ReviewModel from '../models/ReviewModel.js';
+import { emitNewReview } from '../config/socket.js';
 
 cloudinary.config({
     cloud_name: process.env.CLOUDINARY_NAME,
@@ -1394,6 +1395,8 @@ const addReview = async (req, res) => {
         });
         await newReview.save();
 
+        await newReview.populate('userId', 'name avatar');
+
         // Bước 2: Thêm đánh giá vào danh sách `reviews` của sản phẩm
         await ProductModel.findByIdAndUpdate(productId, {
             $push: { review: newReview._id },
@@ -1410,6 +1413,8 @@ const addReview = async (req, res) => {
             reviewCount: reviews.length,
         });
 
+        emitNewReview(newReview);
+
         return res.status(200).json({
             success: true,
             message: 'Đánh giá thành công',
@@ -1423,6 +1428,102 @@ const addReview = async (req, res) => {
         });
     }
 };
+const addReplyToReview = async (req, res) => {
+    try {
+        const { reviewId } = req.params;
+        const { replyText } = req.body;
+        const userId = req.user._id;
+
+        const review = await ReviewModel.findById(reviewId);
+        if (!review) {
+            return res.status(404).json({ success: false, message: 'Review không tồn tại' });
+        }
+
+        review.replies.push({
+            userId,
+            replyText,
+        });
+
+        await review.save();
+
+        // Populate userId trong replies
+        const populatedReview = await ReviewModel.findById(reviewId).populate('replies.userId', 'name avatar');
+
+        // Lấy reply mới nhất
+        const newReply = populatedReview.replies[populatedReview.replies.length - 1];
+
+        res.status(200).json({ success: true, message: 'Phản hồi thành công', review, reviewId, newReply });
+    } catch (err) {
+        console.error('addReplyToReview error:', err);
+        res.status(500).json({ success: false, message: 'Lỗi máy chủ' });
+    }
+};
+const deleteReview = async (req, res) => {
+    try {
+        const { reviewId } = req.params;
+        const userId = req.user._id; // user đang đăng nhập
+
+        const review = await ReviewModel.findById(reviewId);
+
+        if (!review) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy đánh giá',
+            });
+        }
+
+        // ✅ Chỉ cho phép xóa nếu là người viết review
+        if (review.userId.toString() !== userId.toString()) {
+            return res.status(403).json({
+                success: false,
+                message: 'Bạn không có quyền xóa đánh giá này',
+            });
+        }
+
+        await ReviewModel.findByIdAndDelete(reviewId);
+
+        return res.status(200).json({
+            success: true,
+            message: 'Xóa đánh giá thành công',
+            reviewId,
+        });
+    } catch (error) {
+        console.error('deleteReview error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Lỗi máy chủ',
+        });
+    }
+};
+const deleteReplyFromReview = async (req, res) => {
+    try {
+        const { reviewId, replyId } = req.params;
+        const userId = req.user._id;
+
+        const user = await UserModel.findById(userId);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy người dùng',
+            });
+        }
+
+        const review = await ReviewModel.findById(reviewId);
+        if (!review) {
+            return res.status(404).json({ success: false, message: 'Không tìm thấy đánh giá' });
+        }
+        console.log('review: ', review);
+
+        review.replies = review.replies.filter((r) => r._id.toString() !== replyId);
+        await review.save();
+
+        return res.status(200).json({ success: true, message: 'Xóa phản hồi thành công' });
+    } catch (error) {
+        console.error('deleteReplyFromReview error:', error);
+        return res.status(500).json({ success: false, message: 'Lỗi máy chủ' });
+    }
+};
+
 const getDetailsReview = async (req, res) => {
     try {
         const { productId } = req.params;
@@ -1705,6 +1806,9 @@ export {
     updateAddress,
     // review
     addReview,
+    addReplyToReview,
+    deleteReview,
+    deleteReplyFromReview,
     getDetailsReview,
     getReviews,
     // FOR ADMIN

@@ -35,6 +35,16 @@ export const emitOrderStatusUpdated = (orderId, newStatus) => {
     io.emit('updateOrderStatus', { orderId, newStatus });
 };
 
+export const emitNewReview = (reviewData) => {
+    if (!io) throw new Error('Socket.io not initialized');
+    io.emit('newReview', reviewData);
+};
+
+export const emitNewReply = (replyData) => {
+    if (!io) throw new Error('Socket.io not initialized');
+    io.emit('newReply', replyData);
+};
+
 export const getIO = () => {
     if (!io) throw new Error('Socket.io not initialized');
     return io;

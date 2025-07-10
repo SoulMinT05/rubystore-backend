@@ -41,6 +41,9 @@ import {
     toggleUserLockStatus,
     updateUserInfoFromAdmin,
     addUserFromAdmin,
+    addReplyToReview,
+    deleteReview,
+    deleteReplyFromReview,
 } from '../controllers/UserController.js';
 import { verifyAccessToken } from '../ middlewares/verifyToken.js';
 import upload from '../ middlewares/multer.js';
@@ -48,6 +51,9 @@ import upload from '../ middlewares/multer.js';
 const userRouter = Router();
 
 // REVIEW
+userRouter.delete('/deleteReplyFromReview/:reviewId/:replyId', verifyAccessToken, deleteReplyFromReview);
+userRouter.delete('/deleteReview/:reviewId', verifyAccessToken, deleteReview);
+userRouter.post('/addReplyToReview/:reviewId', verifyAccessToken, addReplyToReview);
 userRouter.get('/reviews/:productId', getDetailsReview);
 userRouter.post('/addReview', verifyAccessToken, addReview);
 userRouter.get('/all-reviews', getReviews);

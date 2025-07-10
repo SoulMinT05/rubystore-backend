@@ -24,10 +24,26 @@ const reviewSchema = mongoose.Schema(
             type: String,
             default: 4,
         },
+        replies: [
+            {
+                userId: {
+                    type: mongoose.Schema.Types.ObjectId,
+                    ref: 'user',
+                },
+                replyText: {
+                    type: String,
+                    required: true,
+                },
+                createdAt: {
+                    type: Date,
+                    default: Date.now,
+                },
+            },
+        ],
     },
     {
         timestamps: true,
-    },
+    }
 );
 
 const ReviewModel = mongoose.model('review', reviewSchema);
