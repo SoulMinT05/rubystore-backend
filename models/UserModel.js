@@ -113,6 +113,12 @@ const userSchema = mongoose.Schema(
                 ref: 'order',
             },
         ],
+        notifications: [
+            {
+                type: mongoose.Schema.ObjectId,
+                ref: 'notification',
+            },
+        ],
         searchHistory: [
             {
                 type: String,

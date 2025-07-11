@@ -3,10 +3,11 @@ import StaffModel from '../models/StaffModel.js';
 import ProductModel from '../models/ProductModel.js';
 import OrderModel from '../models/OrderModel.js';
 import VoucherModel from '../models/VoucherModel.js';
+import NotificationModel from '../models/NotificationModel.js';
 import CheckoutTokenModel from '../models/CheckoutTokenModel.js';
 import sendAccountConfirmationEmail from '../config/sendEmail.js';
 import { createOrderEmailHtml } from '../utils/emailHtml.js';
-import { emitOrderStatusUpdated } from '../config/socket.js';
+import { emitNotificationCreateOrder, emitOrderStatusUpdated } from '../config/socket.js';
 
 const createOrder = async (req, res) => {
     try {
@@ -124,6 +125,15 @@ const createOrder = async (req, res) => {
 
         await user.save();
 
+        const newNotification = await NotificationModel.create({
+            userId: user._id,
+            title: 'Tạo đơn hàng mới thành công',
+            description: `Bạn vừa tạo đơn hàng #${newOrder._id} thành công`,
+            type: 'order', // 👈 Thêm type
+            isRead: false,
+            targetUrl: '/order-history',
+        });
+
         const emailHtml = await createOrderEmailHtml(user, newOrder);
         if (user.email) {
             await sendAccountConfirmationEmail(
@@ -139,6 +149,7 @@ const createOrder = async (req, res) => {
             message: 'Đặt hàng thành công',
             orderId: newOrder._id,
             orderedItemIds,
+            newNotification,
         });
     } catch (error) {
         console.error('createOrder error:', error);
