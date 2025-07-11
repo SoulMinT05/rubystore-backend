@@ -10,7 +10,7 @@ const notificationSchema = new mongoose.Schema(
         targetUrl: { type: String },
         isRead: { type: Boolean, default: false },
         expiredAt: { type: Date },
-        meta: { type: mongoose.Schema.Types.Mixed },
+        bgColor: { type: String },
     },
     {
         timestamps: true,

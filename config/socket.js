@@ -18,6 +18,14 @@ export const initSocket = (server) => {
         console.log('User connected:', socket.id);
         onlineUsers.add(socket.id);
 
+        // ✅ Khi client gửi userId, cho socket join vào room
+        socket.on('joinRoom', (userId) => {
+            if (userId) {
+                socket.join(userId.toString()); // Join vào room có tên là userId
+                console.log(`Socket ${socket.id} joined room ${userId}`);
+            }
+        });
+
         // DISCONNECTED
         socket.on('disconnect', () => {
             console.log('User disconnected:', socket.id);
@@ -55,9 +63,9 @@ export const emitDeleteReply = (replyData) => {
     io.emit('deletedReply', replyData);
 };
 
-export const emitNotificationCreateOrder = (userId, notification) => {
+export const emitNotificationOrder = (userId, notification) => {
     if (!io) throw new Error('Socket.io not initialized');
-    io.to(userId.toString()).emit('notificationCreateOrder', notification);
+    io.to(userId.toString()).emit('notificationOrder', notification);
 };
 
 export const emitUpdateOrder = (orderData) => {

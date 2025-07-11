@@ -115,6 +115,7 @@ const markNotificationAsRead = async (req, res) => {
             message: 'Thông báo đã được đánh dấu là đã đọc',
             notification,
             notificationId,
+            targetUrl: notification.targetUrl,
         });
     } catch (error) {
         console.error('Lỗi khi mark notification as read:', error);

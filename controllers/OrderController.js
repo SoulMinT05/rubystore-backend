@@ -7,7 +7,22 @@ import NotificationModel from '../models/NotificationModel.js';
 import CheckoutTokenModel from '../models/CheckoutTokenModel.js';
 import sendAccountConfirmationEmail from '../config/sendEmail.js';
 import { createOrderEmailHtml } from '../utils/emailHtml.js';
-import { emitNotificationCreateOrder, emitOrderStatusUpdated } from '../config/socket.js';
+import { emitNotificationOrder, emitOrderStatusUpdated } from '../config/socket.js';
+
+const getStatusText = (status) => {
+    switch (status) {
+        case 'pending':
+            return 'Chờ xác nhận';
+        case 'shipping':
+            return 'Đang giao hàng';
+        case 'delivered':
+            return 'Đã giao hàng';
+        case 'cancelled':
+            return 'Đã huỷ';
+        default:
+            return status;
+    }
+};
 
 const createOrder = async (req, res) => {
     try {
@@ -132,6 +147,7 @@ const createOrder = async (req, res) => {
             type: 'order', // 👈 Thêm type
             isRead: false,
             targetUrl: '/order-history',
+            bgColor: 'bg-blue-500',
         });
 
         const emailHtml = await createOrderEmailHtml(user, newOrder);
@@ -154,6 +170,135 @@ const createOrder = async (req, res) => {
     } catch (error) {
         console.error('createOrder error:', error);
         return res.status(500).json({ success: false, message: 'Lỗi máy chủ' });
+    }
+};
+
+const cancelOrderFromUser = async (req, res) => {
+    try {
+        const userId = req.user._id;
+        const user = await UserModel.findById(userId);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy người dùng',
+            });
+        }
+
+        const { orderId } = req.body;
+        const order = await OrderModel.findById(orderId);
+        if (!order) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy đơn hàng',
+            });
+        }
+        if (order.userId.toString() !== userId.toString()) {
+            return res.status(403).json({
+                success: false,
+                message: 'Bạn không có quyền hủy đơn hàng này',
+            });
+        }
+        if (order.orderStatus !== 'pending') {
+            return res.status(400).json({
+                success: false,
+                message: 'Chỉ được hủy đơn khi đơn đang chờ xử lý',
+            });
+        }
+
+        order.orderStatus = 'cancelled';
+        await order.save();
+
+        // Cập nhật orderStatus trong user.orderHistory nếu có
+        const orderIndex = user.orderHistory.findIndex((item) => item._id.toString() === orderId);
+
+        if (orderIndex !== -1) {
+            user.orderHistory[orderIndex].orderStatus = 'cancelled';
+            await user.save();
+        }
+
+        const newCancelNotification = await NotificationModel.create({
+            userId,
+            title: 'Hủy đơn hàng thành công',
+            description: `Bạn vừa hủy đơn hàng #${orderId} thành công'`,
+            type: 'order',
+            isRead: false,
+            bgColor: 'bg-red-500', // Màu cho trạng thái cập nhật
+            targetUrl: '/order-history',
+        });
+
+        // Emit event socket
+        emitOrderStatusUpdated(orderId.toString(), 'cancelled');
+
+        return res.status(200).json({
+            success: true,
+            message: 'Hủy đơn hàng thành công',
+            order,
+            newCancelNotification,
+        });
+    } catch (error) {
+        console.error('getDetailsOrder error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Lỗi máy chủ',
+        });
+    }
+};
+
+const updateOrderStatusByAdmin = async (req, res) => {
+    try {
+        const { orderId } = req.params;
+        const { newStatus } = req.body;
+
+        const order = await OrderModel.findById(orderId);
+        if (!order) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy đơn hàng',
+            });
+        }
+
+        if (order.orderStatus === 'cancelled') {
+            return res.status(400).json({
+                success: false,
+                message: 'Đơn hàng đã bị hủy, không thể cập nhật trạng thái',
+            });
+        }
+
+        order.orderStatus = newStatus;
+        await order.save();
+
+        const userId = order.userId;
+        const statusText = getStatusText(newStatus);
+
+        const newUpdateNotification = await NotificationModel.create({
+            userId,
+            title: 'Đơn hàng đã được cập nhật',
+            description: `Trạng thái đơn hàng #${orderId} đã được chuyển sang trạng thái '${statusText}'`,
+            type: 'order',
+            isRead: false,
+            bgColor: 'bg-green-500', // Màu cho trạng thái cập nhật
+            targetUrl: '/order-history',
+        });
+
+        // ✅ Emit thông báo socket tới riêng người dùng
+        emitNotificationOrder(userId, newUpdateNotification);
+
+        // // ✅ Emit cập nhật trạng thái cho tất cả admin, nhân viên, người dùng
+        emitOrderStatusUpdated(orderId.toString(), newStatus);
+
+        return res.status(200).json({
+            success: true,
+            message: 'Cập nhật trạng thái đơn hàng thành công',
+            order,
+            orderId,
+            newUpdateNotification,
+        });
+    } catch (error) {
+        console.error('updateOrderStatusByAdmin error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Lỗi máy chủ',
+        });
     }
 };
 
@@ -227,107 +372,6 @@ const getDetailsOrder = async (req, res) => {
         });
     } catch (error) {
         console.error('getDetailsOrder error:', error);
-        return res.status(500).json({
-            success: false,
-            message: 'Lỗi máy chủ',
-        });
-    }
-};
-
-const cancelOrderFromUser = async (req, res) => {
-    try {
-        const userId = req.user._id;
-        const user = await UserModel.findById(userId);
-        if (!user) {
-            return res.status(404).json({
-                success: false,
-                message: 'Không tìm thấy người dùng',
-            });
-        }
-
-        const { orderId } = req.body;
-        const order = await OrderModel.findById(orderId);
-        if (!order) {
-            return res.status(404).json({
-                success: false,
-                message: 'Không tìm thấy đơn hàng',
-            });
-        }
-        if (order.userId.toString() !== userId.toString()) {
-            return res.status(403).json({
-                success: false,
-                message: 'Bạn không có quyền hủy đơn hàng này',
-            });
-        }
-        if (order.orderStatus !== 'pending') {
-            return res.status(400).json({
-                success: false,
-                message: 'Chỉ được hủy đơn khi đơn đang chờ xử lý',
-            });
-        }
-
-        order.orderStatus = 'cancelled';
-        await order.save();
-
-        // Cập nhật orderStatus trong user.orderHistory nếu có
-        const orderIndex = user.orderHistory.findIndex((item) => item._id.toString() === orderId);
-
-        if (orderIndex !== -1) {
-            user.orderHistory[orderIndex].orderStatus = 'cancelled';
-            await user.save();
-        }
-
-        // Emit event socket
-        emitOrderStatusUpdated(orderId.toString(), 'cancelled');
-
-        return res.status(200).json({
-            success: true,
-            message: 'Hủy đơn hàng thành công',
-            order,
-        });
-    } catch (error) {
-        console.error('getDetailsOrder error:', error);
-        return res.status(500).json({
-            success: false,
-            message: 'Lỗi máy chủ',
-        });
-    }
-};
-
-const updateOrderStatusByAdmin = async (req, res) => {
-    try {
-        const { orderId } = req.params;
-        const { newStatus } = req.body;
-
-        const order = await OrderModel.findById(orderId);
-        if (!order) {
-            return res.status(404).json({
-                success: false,
-                message: 'Không tìm thấy đơn hàng',
-            });
-        }
-
-        if (order.orderStatus === 'cancelled') {
-            return res.status(400).json({
-                success: false,
-                message: 'Đơn hàng đã bị hủy, không thể cập nhật trạng thái',
-            });
-        }
-
-        order.orderStatus = newStatus;
-        await order.save();
-
-        // Emit event socket
-        emitOrderStatusUpdated(orderId.toString(), newStatus);
-
-        return res.status(200).json({
-            success: true,
-            message: 'Cập nhật trạng thái đơn hàng thành công',
-            order,
-            orderId,
-        });
-    } catch (error) {
-        console.error('updateOrderStatusByAdmin error:', error);
         return res.status(500).json({
             success: false,
             message: 'Lỗi máy chủ',
