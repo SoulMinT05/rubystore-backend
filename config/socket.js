@@ -68,6 +68,11 @@ export const emitNotificationOrder = (userId, notification) => {
     io.to(userId.toString()).emit('notificationOrder', notification);
 };
 
+export const emitReplyToReview = (receiverUserId, notification) => {
+    if (!io) throw new Error('Socket.io not initialized');
+    io.to(receiverUserId.toString()).emit('notificationReplyToReview', notification);
+};
+
 export const emitUpdateOrder = (orderData) => {
     if (!io) throw new Error('Socket.io not initialized');
     io.emit('updatedOrder', orderData);

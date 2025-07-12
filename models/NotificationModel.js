@@ -2,7 +2,8 @@ import mongoose from 'mongoose';
 
 const notificationSchema = new mongoose.Schema(
     {
-        userId: { type: mongoose.Schema.Types.ObjectId, ref: 'user', required: true },
+        userId: { type: mongoose.Schema.Types.ObjectId, ref: 'user', required: true }, // người nhận
+        avatarSender: { type: String }, // avatar người gửi
         title: { type: String, required: true },
         description: { type: String },
         image: { type: String },

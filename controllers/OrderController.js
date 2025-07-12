@@ -283,7 +283,7 @@ const updateOrderStatusByAdmin = async (req, res) => {
         // ✅ Emit thông báo socket tới riêng người dùng
         emitNotificationOrder(userId, newUpdateNotification);
 
-        // // ✅ Emit cập nhật trạng thái cho tất cả admin, nhân viên, người dùng
+        // ✅ Emit cập nhật trạng thái cho tất cả admin, nhân viên, người dùng
         emitOrderStatusUpdated(orderId.toString(), newStatus);
 
         return res.status(200).json({

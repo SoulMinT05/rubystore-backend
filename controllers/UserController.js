@@ -10,7 +10,8 @@ import generateRefreshToken from '../utils/generateRefreshToken.js';
 
 import { v2 as cloudinary } from 'cloudinary';
 import ReviewModel from '../models/ReviewModel.js';
-import { emitDeleteReply, emitDeleteReview, emitNewReply, emitNewReview } from '../config/socket.js';
+import { emitDeleteReply, emitDeleteReview, emitNewReply, emitNewReview, emitReplyToReview } from '../config/socket.js';
+import NotificationModel from '../models/NotificationModel.js';
 
 cloudinary.config({
     cloud_name: process.env.CLOUDINARY_NAME,
@@ -1433,6 +1434,13 @@ const addReplyToReview = async (req, res) => {
         const { reviewId } = req.params;
         const { replyText } = req.body;
         const userId = req.user._id;
+        const user = await UserModel.findById(userId);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy người gửi',
+            });
+        }
 
         const review = await ReviewModel.findById(reviewId);
         if (!review) {
@@ -1452,12 +1460,37 @@ const addReplyToReview = async (req, res) => {
         // Lấy reply mới nhất
         const newReply = populatedReview.replies[populatedReview.replies.length - 1];
 
+        // ✅ Emit cập nhật reply cho người dùng thấy
         emitNewReply({
             reviewId,
             newReply,
         });
 
-        res.status(200).json({ success: true, message: 'Phản hồi thành công', review, reviewId, newReply });
+        const receiverUserId = review.userId;
+        const sender = await UserModel.findById(userId).select('name avatar');
+
+        const newReplyNotification = await NotificationModel.create({
+            userId: receiverUserId,
+            avatarSender: sender.avatar,
+            title: `${sender.name} đã phản hồi đánh giá của bạn.`,
+            description: newReply.replyText,
+            type: 'reply',
+            isRead: false,
+            bgColor: 'bg-red-500', // Màu cho trạng thái cập nhật
+            targetUrl: `/product/${review.productId}?tab=review`,
+        });
+
+        // ✅ Emit thông báo socket tới riêng người dùng
+        emitReplyToReview(receiverUserId, newReplyNotification);
+
+        res.status(200).json({
+            success: true,
+            message: 'Phản hồi thành công',
+            review,
+            reviewId,
+            newReply,
+            newReplyNotification,
+        });
     } catch (err) {
         console.error('addReplyToReview error:', err);
         res.status(500).json({ success: false, message: 'Lỗi máy chủ' });
@@ -1542,10 +1575,16 @@ const getDetailsReview = async (req, res) => {
         // const reviews = await ReviewModel.find({ productId }).populate('userId', '-refreshToken -password'); // Lấy thông tin user
         const product = await ProductModel.findById(productId).populate({
             path: 'review',
-            populate: {
-                path: 'userId',
-                select: '-refreshToken -password',
-            },
+            populate: [
+                {
+                    path: 'userId',
+                    select: 'name avatar',
+                },
+                {
+                    path: 'replies.userId', // ✅ thêm dòng này để populate người reply
+                    select: 'name avatar',
+                },
+            ],
         });
         res.status(200).json({ success: true, product });
     } catch (error) {
@@ -1556,7 +1595,9 @@ const getDetailsReview = async (req, res) => {
 
 const getReviews = async (req, res) => {
     try {
-        const reviews = await ReviewModel.find().populate('userId', '-refreshToken -password'); // Lấy thông tin user
+        const reviews = await ReviewModel.find()
+            .populate('userId', 'name avatar')
+            .populate('replies.userId', 'name avatar'); // Lấy thông tin user
         res.status(200).json({ success: true, reviews });
     } catch (error) {
         console.error('Lỗi khi lấy danh sách review:', error.message);
