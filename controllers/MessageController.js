@@ -1,10 +1,11 @@
+import { v2 as cloudinary } from 'cloudinary';
 import UserModel from '../models/UserModel.js';
 import StaffModel from '../models/StaffModel.js';
-import { v2 as cloudinary } from 'cloudinary';
 import MessageModel from '../models/MessageModel.js';
-import mongoose from 'mongoose';
+import NotificationModel from '../models/NotificationModel.js';
+
 import { populateUsersStaffsInMessages } from '../utils/populateUserStaffInMessages.js';
-import { emitSendMessage } from '../config/socket.js';
+import { emitNotificationSendMessage, emitSendMessage } from '../config/socket.js';
 
 cloudinary.config({
     cloud_name: process.env.CLOUDINARY_NAME,
@@ -41,9 +42,23 @@ export const sendMessage = async (req, res) => {
         const populatedMessage = await populateUsersStaffsInMessages([newMessage]);
         emitSendMessage(receiverId, populatedMessage[0]);
 
+        const newMessageNotification = await NotificationModel.create({
+            userId: receiverId,
+            avatarSender: populatedMessage[0].senderId.avatar,
+            title: `${populatedMessage[0].senderId.name} đã nhắn tin cho bạn.`,
+            description: text ? text : 'Hình ảnh',
+            images: imageUrls ? imageUrls : [],
+            type: 'message',
+            isRead: false,
+            bgColor: 'bg-blue-500', // Màu cho trạng thái cập nhật
+            targetUrl: `/message/${senderId}`,
+        });
+        emitNotificationSendMessage(receiverId, newMessageNotification);
+
         return res.status(200).json({
             success: true,
             newMessage: populatedMessage[0],
+            newMessageNotification,
         });
     } catch (error) {
         console.error('sendMessage error:', error);

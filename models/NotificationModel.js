@@ -7,7 +7,7 @@ const notificationSchema = new mongoose.Schema(
         title: { type: String, required: true },
         description: { type: String },
         image: { type: String },
-        type: { type: String, enum: ['order', 'review', 'reply', 'system', 'chat'], required: true },
+        type: { type: String, enum: ['order', 'review', 'reply', 'system', 'message'], required: true },
         targetUrl: { type: String },
         isRead: { type: Boolean, default: false },
         expiredAt: { type: Date },

@@ -54,11 +54,6 @@ export const emitNewReview = (reviewData) => {
     io.emit('newReview', reviewData);
 };
 
-export const emitNewReply = (replyData) => {
-    if (!io) throw new Error('Socket.io not initialized');
-    io.emit('newReply', replyData);
-};
-
 export const emitDeleteReview = (reviewData) => {
     if (!io) throw new Error('Socket.io not initialized');
     io.emit('deletedReview', reviewData);
@@ -74,14 +69,25 @@ export const emitNotificationOrder = (userId, notification) => {
     io.to(userId.toString()).emit('notificationOrder', notification);
 };
 
+// REPLY FOR REVIEW
+export const emitNewReply = (replyData) => {
+    if (!io) throw new Error('Socket.io not initialized');
+    io.emit('newReply', replyData);
+};
+
 export const emitReplyToReview = (receiverUserId, notification) => {
     if (!io) throw new Error('Socket.io not initialized');
     io.to(receiverUserId.toString()).emit('notificationReplyToReview', notification);
 };
 
+// SEND MESSAGE
 export const emitSendMessage = (receiverUserId, notification) => {
     if (!io) throw new Error('Socket.io not initialized');
     io.to(`message-${receiverUserId.toString()}`).emit('newMessage', notification);
+};
+export const emitNotificationSendMessage = (userId, notification) => {
+    if (!io) throw new Error('Socket.io not initialized');
+    io.to(`message-${userId.toString()}`).emit('notificationNewMessage', notification);
 };
 
 export const emitUpdateOrder = (orderData) => {
