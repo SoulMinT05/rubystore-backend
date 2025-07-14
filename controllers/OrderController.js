@@ -312,7 +312,9 @@ const getAllOrdersFromUser = async (req, res) => {
                 message: 'Không tìm thấy người dùng',
             });
         }
-        const orders = await OrderModel.find({ userId }).populate('userId').sort({ createdAt: -1 });
+        const orders = await OrderModel.find({ userId })
+            .populate('userId', 'name email phoneNumber')
+            .sort({ createdAt: -1 });
         return res.status(200).json({
             success: true,
             orders,

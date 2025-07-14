@@ -16,6 +16,10 @@ const orderSchema = new mongoose.Schema(
                 sizeProduct: String,
                 quantityProduct: Number,
                 images: [String],
+                isReviewed: {
+                    type: Boolean,
+                    default: false,
+                },
             },
         ],
         shippingAddress: {

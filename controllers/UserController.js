@@ -1,5 +1,6 @@
 import UserModel from '../models/UserModel.js';
 import ProductModel from '../models/ProductModel.js';
+import OrderModel from '../models/OrderModel.js';
 
 import bcryptjs from 'bcryptjs';
 import jwt from 'jsonwebtoken';
@@ -12,6 +13,8 @@ import { v2 as cloudinary } from 'cloudinary';
 import ReviewModel from '../models/ReviewModel.js';
 import { emitDeleteReply, emitDeleteReview, emitNewReply, emitNewReview, emitReplyToReview } from '../config/socket.js';
 import NotificationModel from '../models/NotificationModel.js';
+
+import mongoose from 'mongoose';
 
 cloudinary.config({
     cloud_name: process.env.CLOUDINARY_NAME,
@@ -1386,8 +1389,30 @@ const updateAddress = async (req, res) => {
 const addReview = async (req, res) => {
     try {
         const userId = req.user._id;
-        const { comment, rating, productId } = req.body;
+        const { comment, rating, productId, sizeProduct } = req.body;
 
+        // 1. Tìm đơn hàng đã giao có chứa sản phẩm và chưa được review
+        const order = await OrderModel.findOne({
+            userId,
+            orderStatus: 'delivered',
+            selectedCartItems: {
+                // tìm ít nhất một phần tử trong một mảng thỏa tất cả điều kiện con cùng lúc
+                $elemMatch: {
+                    product: productId,
+                    sizeProduct,
+                    isReviewed: false,
+                },
+            },
+        });
+
+        if (!order) {
+            return res.status(400).json({
+                success: false,
+                message: 'Bạn chỉ có thể đánh giá sản phẩm sau khi đơn hàng được giao và chưa đánh giá.',
+            });
+        }
+
+        // 2. Tạo đánh giá mới
         const newReview = new ReviewModel({
             userId,
             productId,
@@ -1398,21 +1423,32 @@ const addReview = async (req, res) => {
 
         await newReview.populate('userId', 'name avatar');
 
-        // Bước 2: Thêm đánh giá vào danh sách `reviews` của sản phẩm
+        // 3. Gắn review vào sản phẩm
         await ProductModel.findByIdAndUpdate(productId, {
             $push: { review: newReview._id },
         });
 
-        // Bước 3: Lấy lại toàn bộ đánh giá để tính lại trung bình
+        // 4. Tính lại điểm trung bình
         const reviews = await ReviewModel.find({ productId });
         const totalRating = reviews.reduce((acc, review) => acc + Number(review.rating), 0);
         const averageRating = (totalRating / reviews.length).toFixed(1);
 
-        // Bước 4: Cập nhật lại thông tin rating cho Product
         await ProductModel.findByIdAndUpdate(productId, {
             averageRating,
             reviewCount: reviews.length,
         });
+
+        // 5. Đánh dấu đã review trong order
+        await OrderModel.updateOne(
+            {
+                _id: order._id,
+                'selectedCartItems.product': productId,
+                'selectedCartItems.sizeProduct': sizeProduct,
+            },
+            {
+                $set: { 'selectedCartItems.$.isReviewed': true },
+            }
+        );
 
         emitNewReview(newReview);
 
