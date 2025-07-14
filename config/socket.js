@@ -25,6 +25,12 @@ export const initSocket = (server) => {
                 console.log(`Socket ${socket.id} joined room ${userId}`);
             }
         });
+        socket.on('joinMessageRoom', (userId) => {
+            if (userId) {
+                socket.join(`message-${userId}`); // Join vào room có tên là userId
+                console.log(`Socket ${socket.id} joined room message-${userId}`);
+            }
+        });
 
         // DISCONNECTED
         socket.on('disconnect', () => {
@@ -71,6 +77,11 @@ export const emitNotificationOrder = (userId, notification) => {
 export const emitReplyToReview = (receiverUserId, notification) => {
     if (!io) throw new Error('Socket.io not initialized');
     io.to(receiverUserId.toString()).emit('notificationReplyToReview', notification);
+};
+
+export const emitSendMessage = (receiverUserId, notification) => {
+    if (!io) throw new Error('Socket.io not initialized');
+    io.to(`message-${receiverUserId.toString()}`).emit('newMessage', notification);
 };
 
 export const emitUpdateOrder = (orderData) => {

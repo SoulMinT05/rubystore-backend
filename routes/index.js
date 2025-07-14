@@ -10,6 +10,7 @@ import checkoutTokenRouter from './CheckoutTokenRouter.js';
 import orderRouter from './OrderRouter.js';
 import statisticRouter from './StatisticRouter.js';
 import notificationRouter from './NotificationRouter.js';
+import messageRouter from './MessageRouter.js';
 
 const route = (app) => {
     app.use('/api/user', userRouter);
@@ -24,6 +25,7 @@ const route = (app) => {
     app.use('/api/order', orderRouter);
     app.use('/api/statistic', statisticRouter);
     app.use('/api/notification', notificationRouter);
+    app.use('/api/message', messageRouter);
 };
 
 export default route;
