@@ -1,4 +1,5 @@
 import UserModel from '../models/UserModel.js';
+import StaffModel from '../models/StaffModel.js';
 import ProductModel from '../models/ProductModel.js';
 import OrderModel from '../models/OrderModel.js';
 
@@ -11,7 +12,15 @@ import generateRefreshToken from '../utils/generateRefreshToken.js';
 
 import { v2 as cloudinary } from 'cloudinary';
 import ReviewModel from '../models/ReviewModel.js';
-import { emitDeleteReply, emitDeleteReview, emitNewReply, emitNewReview, emitReplyToReview } from '../config/socket.js';
+import {
+    emitDeleteReply,
+    emitDeleteReview,
+    emitNewReply,
+    emitNewReview,
+    emitNotificationStaffNewReview,
+    emitReplyToReview,
+    emitStaffNewReview,
+} from '../config/socket.js';
 import NotificationModel from '../models/NotificationModel.js';
 
 import mongoose from 'mongoose';
@@ -1388,8 +1397,15 @@ const updateAddress = async (req, res) => {
 // REVIEWS
 const addReview = async (req, res) => {
     try {
-        const userId = req.user._id;
         const { comment, rating, productId, sizeProduct } = req.body;
+        const userId = req.user._id;
+        const user = await UserModel.findById(userId);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy người dùng',
+            });
+        }
 
         // 1. Tìm đơn hàng đã giao có chứa sản phẩm và chưa được review
         const order = await OrderModel.findOne({
@@ -1420,8 +1436,12 @@ const addReview = async (req, res) => {
             rating,
         });
         await newReview.save();
+        await newReview.populate('userId', 'name email avatar');
 
-        await newReview.populate('userId', 'name avatar');
+        const populatedNewReview = await ReviewModel.findById(newReview._id)
+            .populate('userId', 'name email avatar')
+            .populate('replies.userId', 'name avatar')
+            .populate('productId', 'name images');
 
         // 3. Gắn review vào sản phẩm
         await ProductModel.findByIdAndUpdate(productId, {
@@ -1449,13 +1469,31 @@ const addReview = async (req, res) => {
                 $set: { 'selectedCartItems.$.isReviewed': true },
             }
         );
-
+        // New review for user
         emitNewReview(newReview);
+
+        // Notification cho Staff, Admin
+        const staffList = await StaffModel.find();
+        for (const staff of staffList) {
+            const notification = await NotificationModel.create({
+                userId: staff._id,
+                avatarSender: user.avatar,
+                title: 'Có đánh giá mới',
+                description: `Người dùng ${user.name} vừa đánh giá sản phẩm có ID #${productId}`,
+                type: 'review',
+                isRead: false,
+                targetUrl: `/reviews`,
+                bgColor: 'bg-blue-500',
+            });
+            emitNotificationStaffNewReview(staff._id, notification);
+            emitStaffNewReview(staff._id, populatedNewReview);
+        }
 
         return res.status(200).json({
             success: true,
             message: 'Đánh giá thành công',
             newReview,
+            populatedNewReview,
             averageRating,
         });
     } catch (error) {

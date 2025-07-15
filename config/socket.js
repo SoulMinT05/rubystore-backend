@@ -97,6 +97,16 @@ export const emitReplyToReview = (receiverUserId, notification) => {
     io.to(receiverUserId.toString()).emit('notificationReplyToReview', notification);
 };
 
+// REVIEW FOR ADMIN
+export const emitNotificationStaffNewReview = (userId, notification) => {
+    if (!io) throw new Error('Socket.io not initialized');
+    io.to(userId.toString()).emit('notificationStaffNewReview', notification);
+};
+export const emitStaffNewReview = (userId, review) => {
+    if (!io) throw new Error('Socket.io not initialized');
+    io.to(userId.toString()).emit('staffNewReview', review);
+};
+
 // SEND MESSAGE
 export const emitSendMessage = (receiverUserId, notification) => {
     if (!io) throw new Error('Socket.io not initialized');

@@ -341,7 +341,7 @@ const updateOrderStatusByAdmin = async (req, res) => {
         console.error('updateOrderStatusByAdmin error:', error);
         return res.status(500).json({
             success: false,
-            message: 'Lỗi máy chủ',
+            message: error.response.data.message,
         });
     }
 };
