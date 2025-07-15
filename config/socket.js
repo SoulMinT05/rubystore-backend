@@ -44,9 +44,31 @@ export const getOnlineUsers = () => {
     return onlineUsers.size;
 };
 
+// ORDER FOR USER
 export const emitOrderStatusUpdated = (orderId, newStatus) => {
     if (!io) throw new Error('Socket.io not initialized');
     io.emit('updateOrderStatus', { orderId, newStatus });
+};
+
+export const emitNotificationOrder = (userId, notification) => {
+    if (!io) throw new Error('Socket.io not initialized');
+    io.to(userId.toString()).emit('notificationOrder', notification);
+};
+
+// ORDER FOR STAFF / ADMIN
+// New order
+export const emitNotificationStaffNewOrder = (userId, notification) => {
+    if (!io) throw new Error('Socket.io not initialized');
+    io.to(userId.toString()).emit('notificationStaffNewOrder', notification);
+};
+export const emitStaffNewOrder = (userId, notification) => {
+    if (!io) throw new Error('Socket.io not initialized');
+    io.to(userId.toString()).emit('staffNewOrder', notification);
+};
+// Cancel order
+export const emitNotificationStaffCancelOrder = (userId, notification) => {
+    if (!io) throw new Error('Socket.io not initialized');
+    io.to(userId.toString()).emit('notificationStaffCancelOrder', notification);
 };
 
 export const emitNewReview = (reviewData) => {
@@ -62,11 +84,6 @@ export const emitDeleteReview = (reviewData) => {
 export const emitDeleteReply = (replyData) => {
     if (!io) throw new Error('Socket.io not initialized');
     io.emit('deletedReply', replyData);
-};
-
-export const emitNotificationOrder = (userId, notification) => {
-    if (!io) throw new Error('Socket.io not initialized');
-    io.to(userId.toString()).emit('notificationOrder', notification);
 };
 
 // REPLY FOR REVIEW

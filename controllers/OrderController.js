@@ -7,7 +7,13 @@ import NotificationModel from '../models/NotificationModel.js';
 import CheckoutTokenModel from '../models/CheckoutTokenModel.js';
 import sendAccountConfirmationEmail from '../config/sendEmail.js';
 import { createOrderEmailHtml } from '../utils/emailHtml.js';
-import { emitNotificationOrder, emitOrderStatusUpdated } from '../config/socket.js';
+import {
+    emitNotificationOrder,
+    emitNotificationStaffCancelOrder,
+    emitNotificationStaffNewOrder,
+    emitOrderStatusUpdated,
+    emitStaffNewOrder,
+} from '../config/socket.js';
 
 const getStatusText = (status) => {
     switch (status) {
@@ -87,7 +93,7 @@ const createOrder = async (req, res) => {
         }
 
         // Tạo đơn hàng
-        const orderData = await OrderModel.create({
+        const orderData = {
             userId,
             selectedCartItems: token.selectedCartItems,
             shippingAddress: user.address,
@@ -96,11 +102,11 @@ const createOrder = async (req, res) => {
             discountType: token.discountType,
             discountValue: token.discountValue,
             finalPrice: token.finalPrice,
-            shippingFee: 0, // có thể tính sau
+            shippingFee: 0,
             paymentMethod,
             paymentStatus,
             note,
-        });
+        };
         if (token.voucher && token.voucher.code) {
             orderData.voucher = token.voucher;
 
@@ -118,7 +124,13 @@ const createOrder = async (req, res) => {
             }
         }
 
-        const newOrder = await OrderModel.create(orderData);
+        const createdOrder = await OrderModel.create(orderData);
+
+        // Populate user và product
+        const newOrder = await OrderModel.findById(createdOrder._id).populate(
+            'userId',
+            'name email avatar phoneNumber address'
+        );
 
         const orderedItemIds = token.selectedCartItems.map((item) => {
             return item._id.toString();
@@ -140,6 +152,7 @@ const createOrder = async (req, res) => {
 
         await user.save();
 
+        // Nofication cho User
         const newNotification = await NotificationModel.create({
             userId: user._id,
             title: 'Tạo đơn hàng mới thành công',
@@ -149,6 +162,22 @@ const createOrder = async (req, res) => {
             targetUrl: '/order-history',
             bgColor: 'bg-blue-500',
         });
+
+        // Notification cho Staff, Admin
+        const staffList = await StaffModel.find();
+        for (const staff of staffList) {
+            const notification = await NotificationModel.create({
+                userId: staff._id,
+                title: 'Có đơn hàng mới',
+                description: `Người dùng ${user.name} vừa tạo đơn hàng #${newOrder._id}`,
+                type: 'order',
+                isRead: false,
+                targetUrl: `/orders`,
+                bgColor: 'bg-blue-500',
+            });
+            emitNotificationStaffNewOrder(staff._id, notification);
+            emitStaffNewOrder(staff._id, newOrder);
+        }
 
         const emailHtml = await createOrderEmailHtml(user, newOrder);
         if (user.email) {
@@ -163,6 +192,7 @@ const createOrder = async (req, res) => {
         return res.status(201).json({
             success: true,
             message: 'Đặt hàng thành công',
+            order: newOrder,
             orderId: newOrder._id,
             orderedItemIds,
             newNotification,
@@ -225,9 +255,23 @@ const cancelOrderFromUser = async (req, res) => {
             bgColor: 'bg-red-500', // Màu cho trạng thái cập nhật
             targetUrl: '/order-history',
         });
-
-        // Emit event socket
+        // Emit event socket cho user
         emitOrderStatusUpdated(orderId.toString(), 'cancelled');
+
+        // Notification cho Staff, Admin
+        const staffList = await StaffModel.find();
+        for (const staff of staffList) {
+            const notification = await NotificationModel.create({
+                userId: staff._id,
+                title: 'Có đơn hàng đã bị hủy',
+                description: `Người dùng ${user.name} vừa hủy đơn hàng #${orderId}`,
+                type: 'order',
+                isRead: false,
+                targetUrl: `/orders`,
+                bgColor: 'bg-red-500',
+            });
+            emitNotificationStaffCancelOrder(staff._id, notification);
+        }
 
         return res.status(200).json({
             success: true,
