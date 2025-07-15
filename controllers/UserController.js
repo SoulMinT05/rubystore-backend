@@ -1640,6 +1640,8 @@ const getReviews = async (req, res) => {
         res.status(500).json({ message: 'Lỗi server khi lấy đánh giá.' });
     }
 };
+
+// USERS
 const getUsersFromAdmin = async (req, res) => {
     try {
         const users = await UserModel.find().select('-password -refreshToken'); // Lấy thông tin user
