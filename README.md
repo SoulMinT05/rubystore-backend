@@ -16,7 +16,7 @@ It supports a full range of core features including:
 
 This repository contains the backend codebase for the system.
 
-Check out: [RubyStore (Client)](https://github.com/SoulMinT05/mtshop-frontend)
+Check out: [RubyStore (Client)](https://github.com/SoulMinT05/rubystore-frontend)
 
 ## Tech Stack
 
@@ -43,7 +43,7 @@ Check out: [RubyStore (Client)](https://github.com/SoulMinT05/mtshop-frontend)
 #### 1. Clone the repository:
 
 ```bash
-git clone https://github.com/SoulMinT05/mtshop-backend
+git clone https://github.com/SoulMinT05/rubystore-backend
 ```
 
 #### 2. Install dependencies:
