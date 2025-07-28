@@ -74,7 +74,7 @@ const markAllNotificationsAsRead = async (req, res) => {
 
         return res.status(200).json({
             success: true,
-            message: 'Tất cả thông báo đã được đánh dấu là đã đọc',
+            message: 'Đã đánh dấu đã đọc tất cả thông báo',
         });
     } catch (error) {
         console.error('Lỗi khi mark all notifications as read:', error);

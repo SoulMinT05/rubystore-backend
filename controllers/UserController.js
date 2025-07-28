@@ -1274,7 +1274,6 @@ const addToWishlist = async (req, res) => {
         const user = await UserModel.findById(userId);
 
         const alreadyExists = user.wishlist.some((item) => item.product.toString() === productId);
-        console.log('alreadyExists: ', alreadyExists);
         if (alreadyExists) {
             return res.status(400).json({
                 success: false,
@@ -1293,12 +1292,10 @@ const addToWishlist = async (req, res) => {
         const wishlistItem = {
             product: product._id,
             productName: product.name,
-            image: product.image || '',
-            rating: product.rating || 0,
+            images: product.images,
             price: product.price,
             oldPrice: product.oldPrice,
             brand: product.brand,
-            discount: product.discount || 0,
         };
 
         user.wishlist.push(wishlistItem);
@@ -1306,7 +1303,7 @@ const addToWishlist = async (req, res) => {
 
         return res.status(200).json({
             success: true,
-            message: 'Đã thêm vào wishlist!',
+            message: 'Thêm vào wishlist thành công!',
             wishlist: wishlistItem,
         });
     } catch (error) {
@@ -1323,20 +1320,23 @@ const removeFromWishlist = async (req, res) => {
         const userId = req.user._id;
         const { productId } = req.params;
 
-        const updatedUser = await UserModel.findByIdAndUpdate(
-            userId,
-            {
-                $pull: {
-                    wishlist: { product: productId },
-                },
-            },
-            { new: true }
-        );
+        const user = await UserModel.findById(userId);
+
+        // Tìm item cần xoá
+        const removedItem = user.wishlist.find((item) => item.product.toString() === productId);
+        if (!removedItem) {
+            return res.status(404).json({
+                success: false,
+                message: 'Sản phẩm không có trong wishlist!',
+            });
+        }
+        await UserModel.findByIdAndUpdate(userId, { $pull: { wishlist: { product: productId } } }, { new: true });
 
         return res.status(200).json({
             success: true,
             message: 'Đã xoá sản phẩm khỏi wishlist!',
-            wishlist: updatedUser.wishlist,
+            removedItem,
+            wishlistId: removedItem._id,
         });
     } catch (error) {
         console.error('Remove wishlist error:', error);
@@ -1347,14 +1347,14 @@ const removeFromWishlist = async (req, res) => {
     }
 };
 
-const getWishlist = async (req, res) => {
+const getAllWishlists = async (req, res) => {
     try {
         const userId = req.user._id;
         const user = await UserModel.findById(userId);
 
         return res.status(200).json({
             success: true,
-            wishlist: user.wishlist || [],
+            wishlists: user.wishlist || [],
         });
     } catch (error) {
         console.error('Get wishlist error:', error);
@@ -1926,7 +1926,7 @@ export {
     // wishlist
     addToWishlist,
     removeFromWishlist,
-    getWishlist,
+    getAllWishlists,
     // address
     updateAddress,
     // review

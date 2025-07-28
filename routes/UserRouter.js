@@ -21,7 +21,7 @@ import {
     // WISHLIST
     addToWishlist,
     removeFromWishlist,
-    getWishlist,
+    getAllWishlists,
     checkLogin,
     checkIsRefreshToken,
     changePassword,
@@ -87,9 +87,9 @@ userRouter.post('/deleteMultipleCartItems', verifyAccessToken, deleteMultipleCar
 userRouter.get('/cart', verifyAccessToken, getCart);
 
 // WISHLIST
-userRouter.post('/addToWishlist', verifyAccessToken, addToWishlist);
 userRouter.delete('/removeFromWishlist/:productId', verifyAccessToken, removeFromWishlist);
-userRouter.get('/getWishlist', verifyAccessToken, getWishlist);
+userRouter.post('/addToWishlist', verifyAccessToken, addToWishlist);
+userRouter.get('/getAllWishlists', verifyAccessToken, getAllWishlists);
 
 // ADDRESS
 userRouter.put('/update-address', verifyAccessToken, updateAddress);

@@ -60,7 +60,7 @@ const userSchema = mongoose.Schema(
                     type: String,
                     required: true,
                 },
-                image: String,
+                images: [String],
                 rating: Number,
                 price: Number,
                 oldPrice: Number,

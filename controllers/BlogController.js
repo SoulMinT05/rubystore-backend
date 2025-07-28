@@ -27,7 +27,7 @@ const createBlog = async (req, res) => {
                 images?.map(async (img) => {
                     const uploadedImage = await cloudinary.uploader.upload(img.path); // upload ảnh lên Cloudinary (hoặc bất kỳ dịch vụ nào khác)
                     return uploadedImage.url; // trả về URL ảnh đã tải lên
-                }),
+                })
             );
         }
 
@@ -53,7 +53,11 @@ const createBlog = async (req, res) => {
 
 const getBlogs = async (req, res) => {
     try {
-        const blogs = await BlogModel.find();
+        const { excludeId } = req.query;
+
+        const filter = excludeId ? { _id: { $ne: excludeId } } : {};
+
+        const blogs = await BlogModel.find(filter);
 
         return res.status(200).json({
             success: true,
@@ -194,7 +198,7 @@ const updateBlog = async (req, res) => {
             await Promise.all(
                 newImages.map((image) => {
                     return blog.images.push(image); // Đẩy ảnh vào mảng images
-                }),
+                })
             );
         }
 
