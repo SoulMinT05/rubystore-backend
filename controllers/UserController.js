@@ -236,25 +236,6 @@ const login = async (req, res) => {
         res.cookie('accessToken', accessToken, cookiesOptionAccessToken);
         res.cookie('refreshToken', refreshToken, cookiesOptionRefreshToken);
 
-        // Lưu vào cache
-        const userCache = {
-            _id: user._id,
-            email: user.email,
-            name: user.name,
-            phoneNumber: user.phoneNumber,
-            address: user.address,
-            avatar: user.avatar,
-            role: user.role,
-            orderHistory: user.orderHistory,
-            wishlist: user.wishlist,
-            shoppingCart: user.shoppingCart,
-            checkoutToken: user.checkoutToken,
-            searchHistory: user.searchHistory,
-            notifications: user.notifications,
-            lastLoginDate: new Date(),
-        };
-        redisClient.setex(`user:${user._id}`, process.env.USER_EXPIRATION, JSON.stringify(userCache));
-
         return res.status(200).json({
             success: true,
             message: 'Đăng nhập thành công',
@@ -405,28 +386,6 @@ const authWithGoogle = async (req, res) => {
         res.cookie('accessToken', accessToken, cookiesOptionAccessToken);
         res.cookie('refreshToken', refreshToken, cookiesOptionRefreshToken);
 
-        // Lưu thông tin user vào Redis
-        const cacheKey = `user:${user._id}`;
-        const userCache = {
-            _id: user._id,
-            email: user.email,
-            name: user.name,
-            phoneNumber: user.phoneNumber,
-            address: user.address,
-            avatar: user.avatar,
-            role: user.role,
-            orderHistory: user.orderHistory,
-            wishlist: user.wishlist,
-            shoppingCart: user.shoppingCart,
-            checkoutToken: user.checkoutToken,
-            searchHistory: user.searchHistory,
-            notifications: user.notifications,
-            lastLoginDate: new Date(),
-        };
-
-        // TTL 10 phút (trùng với accessToken)
-        await redisClient.setEx(cacheKey, process.env.USER_EXPIRATION, JSON.stringify(userCache));
-
         return res.status(200).json({
             success: true,
             message: 'Đăng nhập bằng Google thành công',
@@ -491,28 +450,6 @@ const authWithFacebook = async (req, res) => {
         };
         res.cookie('accessToken', accessToken, cookiesOptionAccessToken);
         res.cookie('refreshToken', refreshToken, cookiesOptionRefreshToken);
-
-        // Lưu thông tin user vào Redis
-        const cacheKey = `user:${user._id}`;
-        const userCache = {
-            _id: user._id,
-            email: user.email,
-            name: user.name,
-            phoneNumber: user.phoneNumber,
-            address: user.address,
-            avatar: user.avatar,
-            role: user.role,
-            orderHistory: user.orderHistory,
-            wishlist: user.wishlist,
-            shoppingCart: user.shoppingCart,
-            checkoutToken: user.checkoutToken,
-            searchHistory: user.searchHistory,
-            notifications: user.notifications,
-            lastLoginDate: new Date(),
-        };
-
-        // TTL 10 phút (trùng với accessToken)
-        await redisClient.setEx(cacheKey, process.env.USER_EXPIRATION, JSON.stringify(userCache));
 
         return res.status(200).json({
             success: true,
@@ -640,8 +577,6 @@ const logout = async (req, res) => {
             { new: true }
         );
 
-        await redisClient.del(`user:${userId}`);
-
         return res.status(200).json({
             success: true,
             message: 'Đăng xuất thành công',
@@ -677,8 +612,6 @@ const uploadAvatar = async (req, res) => {
 
         user.avatar = image.path;
         await user.save();
-
-        await redisClient.del(`user:${userId}`);
 
         return res.status(200).json({
             success: true,
@@ -746,8 +679,6 @@ const updateInfoUser = async (req, res) => {
             },
             { new: true }
         );
-
-        await redisClient.del(`user:${_id}`);
 
         return res.status(200).json({
             success: true,
@@ -953,20 +884,6 @@ const getUserDetails = async (req, res) => {
     try {
         const { _id } = req.user;
 
-        // Cache
-        const cacheKey = `user:${_id}`;
-        const cacheUserDetails = await redisClient.get(cacheKey);
-        if (cacheUserDetails) {
-            console.log('Lấy user details từ cache');
-            return res.status(200).json({
-                success: true,
-                message: 'Thông tin người dùng',
-                user: JSON.parse(cacheUserDetails),
-            });
-        }
-
-        // Query DB
-        console.log('Lấy user details từ DB');
         const user = await UserModel.findById(_id).select('-password -refreshToken');
         if (!user) {
             return res.status(400).json({
@@ -974,8 +891,6 @@ const getUserDetails = async (req, res) => {
                 message: 'Không tìm thấy người dùng',
             });
         }
-
-        redisClient.setex(cacheKey, process.env.USER_EXPIRATION, JSON.stringify(user));
 
         return res.status(200).json({
             success: true,
@@ -1085,7 +1000,6 @@ const checkIsRefreshToken = async (req, res) => {
 };
 
 // CART
-
 const getCart = async (req, res) => {
     try {
         const userId = req.user._id;
@@ -1111,8 +1025,6 @@ const getCart = async (req, res) => {
             success: true,
             cart: {
                 items: cartItems,
-                // totalQuantity,
-                // totalPrice,
             },
         });
     } catch (error) {
@@ -1606,7 +1518,6 @@ const updateAddress = async (req, res) => {
         };
 
         await user.save();
-        await redisClient.del(`user:${userId}`);
 
         res.status(200).json({ success: true, message: 'Cập nhật địa chỉ thành công', address: user.address });
     } catch (error) {
