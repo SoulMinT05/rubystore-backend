@@ -7,6 +7,15 @@ import express from 'express';
 import cors from 'cors';
 import bodyParser from 'body-parser';
 import dotenv from 'dotenv';
+import Redis from 'redis';
+
+const redisClient = Redis
+    .createClient
+    // {
+    // url: // production
+    // }
+    ();
+
 dotenv.config();
 
 import cookieParser from 'cookie-parser';

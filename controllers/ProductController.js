@@ -4,6 +4,8 @@ import ProductRamModel from '../models/ProductRamModel.js';
 import ProductWeightModel from '../models/ProductWeightModel.js';
 import ProductSizeModel from '../models/ProductSizeModel.js';
 
+import redisClient from '../config/redis.js';
+
 import { v2 as cloudinary } from 'cloudinary';
 
 cloudinary.config({
@@ -272,7 +274,7 @@ const getProductsAdmin = async (req, res) => {
 const getProductsUser = async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
-        const perPage = parseInt(req.query.perPage);
+        const perPage = parseInt(req.query.perPage) || 10;
         const totalProducts = await ProductModel.countDocuments({ isPublished: true });
         const totalPages = Math.ceil(totalProducts / perPage);
 
@@ -283,6 +285,19 @@ const getProductsUser = async (req, res) => {
             });
         }
 
+        // // Kiểm tra nếu có Redis
+        const cachedProducts = await redisClient.get(`productsUser?page=${page}&perPage=${perPage}`);
+        if (cachedProducts) {
+            console.log('Lấy products user từ Cache');
+            return res.status(200).json({
+                success: true,
+                products: JSON.parse(cachedProducts),
+                totalPages,
+                page,
+            });
+        }
+        // Nếu không có cache, lấy từ DB
+        console.log('Lấy products user từ DB');
         const products = await ProductModel.find({ isPublished: true })
             .populate('category')
             .skip((page - 1) * perPage)
@@ -295,6 +310,14 @@ const getProductsUser = async (req, res) => {
                 message: 'Không tìm thấy sản phẩm',
             });
         }
+
+        // Lưu vào Redis với TTL
+        redisClient.setex(
+            `productsUser?page=${page}&perPage=${perPage}`,
+            parseInt(process.env.DEFAULT_EXPIRATION),
+            JSON.stringify(products)
+        );
+
         return res.status(200).json({
             success: true,
             products,
@@ -1458,12 +1481,22 @@ const sortProducts = async (req, res) => {
 
 const searchProducts = async (req, res) => {
     try {
-        const { query } = req.query;
+        let { query } = req.query;
+        if (!query) {
+            return res.status(400).json({ success: false, message: 'Thiếu từ khóa tìm kiếm' });
+        }
 
-        if (!query || query.trim() === '') {
-            return res.status(400).json({
-                success: false,
-                message: 'Thiếu từ khóa tìm kiếm',
+        query = query.trim(); // ✅ Trim whitespace
+        if (query === '') {
+            return res.status(400).json({ success: false, message: 'Thiếu từ khóa tìm kiếm' });
+        }
+
+        const cachedSearchProducts = await redisClient.get(`search:${query}`);
+        if (cachedSearchProducts) {
+            console.log('📌 Lấy search product từ cache:', query);
+            return res.status(200).json({
+                success: true,
+                products: JSON.parse(cachedSearchProducts),
             });
         }
 
@@ -1480,6 +1513,9 @@ const searchProducts = async (req, res) => {
                 // { brand: { $regex: regex } },
             ],
         });
+        redisClient.setex(`search:${query}`, process.env.DEFAULT_EXPIRATION, JSON.stringify(products));
+
+        console.log('📌 Lấy search product từ DB:', query);
 
         return res.status(200).json({
             success: true,
@@ -1490,6 +1526,45 @@ const searchProducts = async (req, res) => {
             message: error.message || error,
             success: false,
         });
+    }
+};
+
+const searchProductResults = async (req, res) => {
+    let { keyword } = req.query;
+    if (!keyword) {
+        return res.status(400).json({ success: false, message: 'Thiếu từ khóa tìm kiếm' });
+    }
+
+    keyword = keyword.trim(); // ✅ Trim whitespace
+    if (keyword === '') {
+        return res.status(400).json({ success: false, message: 'Thiếu từ khóa tìm kiếm' });
+    }
+    try {
+        const cachedSearchProducts = await redisClient.get(`search:${keyword}`);
+        if (cachedSearchProducts) {
+            console.log('📌 Lấy search product results từ cache:', keyword);
+            return res.status(200).json({
+                success: true,
+                products: JSON.parse(cachedSearchProducts),
+            });
+        }
+
+        const regex = new RegExp(keyword, 'i'); // không phân biệt hoa thường
+        const products = await ProductModel.find({
+            $or: [{ name: { $regex: regex } }],
+        });
+
+        // Save vào cache
+        redisClient.setex(`search:${keyword}`, process.env.DEFAULT_EXPIRATION, JSON.stringify(products));
+
+        console.log('📌 Lấy search product results từ DB:', keyword);
+
+        res.status(200).json({
+            success: true,
+            products,
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Lỗi server' });
     }
 };
 
@@ -1544,26 +1619,6 @@ const getSearchProductsHistory = async (req, res) => {
         });
     } catch (error) {
         return res.status(500).json({ success: false, message: error.message || 'Lỗi server' });
-    }
-};
-
-const searchProductResults = async (req, res) => {
-    const { keyword } = req.query;
-    try {
-        const regex = new RegExp(keyword, 'i'); // không phân biệt hoa thường
-        const products = await ProductModel.find({
-            $or: [
-                { name: { $regex: regex } },
-                // { description: { $regex: regex } },
-                // { categoryName: { $regex: regex } },
-                // { subCategoryName: { $regex: regex } },
-                // { thirdSubCategoryName: { $regex: regex } },
-                // { brand: { $regex: regex } },
-            ],
-        });
-        res.status(200).json({ success: true, products });
-    } catch (error) {
-        res.status(500).json({ success: false, message: 'Lỗi server' });
     }
 };
 
