@@ -1,3 +1,4 @@
+import redisClient from '../config/redis.js';
 import CategoryModel from '../models/CategoryModel.js';
 
 import { v2 as cloudinary } from 'cloudinary';
@@ -28,7 +29,7 @@ const createCategory = async (req, res) => {
                 images?.map(async (img) => {
                     const uploadedImage = await cloudinary.uploader.upload(img.path); // upload ảnh lên Cloudinary (hoặc bất kỳ dịch vụ nào khác)
                     return uploadedImage.url; // trả về URL ảnh đã tải lên
-                }),
+                })
             );
         }
 
@@ -55,6 +56,18 @@ const createCategory = async (req, res) => {
 
 const getCategories = async (req, res) => {
     try {
+        // Kiểm tra cache
+        const cacheCategories = await redisClient.get('categories');
+        if (cacheCategories) {
+            console.log('Lấy categories từ cache');
+            return res.status(200).json({
+                success: true,
+                categories: JSON.parse(cacheCategories),
+            });
+        }
+
+        // Nếu không có cache → Query DB
+        console.log('Lấy categories từ DB');
         const categories = await CategoryModel.find();
         const categoryMap = {};
 
@@ -74,6 +87,9 @@ const getCategories = async (req, res) => {
                 rootCategories.push(categoryMap[category._id]);
             }
         });
+
+        redisClient.setex('categories', process.env.DEFAULT_EXPIRATION, JSON.stringify(rootCategories));
+
         return res.status(200).json({
             success: true,
             categories: rootCategories,
@@ -255,7 +271,7 @@ const updateCategory = async (req, res) => {
             await Promise.all(
                 newImages.map((image) => {
                     return category.images.push(image); // Đẩy ảnh vào mảng images
-                }),
+                })
             );
         }
 

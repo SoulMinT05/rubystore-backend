@@ -14,6 +14,7 @@ import upload from '../ middlewares/multer.js';
 
 const categoryRouter = Router();
 
+// CHƯA XÀI
 categoryRouter.get('/categories/count', getCategoriesCount);
 categoryRouter.get('/sub-categories/count', getSubCategoriesCount);
 

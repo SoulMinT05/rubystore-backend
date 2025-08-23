@@ -286,7 +286,7 @@ const getProductsUser = async (req, res) => {
         }
 
         // // Kiểm tra nếu có Redis
-        const cachedProducts = await redisClient.get(`productsUser?page=${page}&perPage=${perPage}`);
+        const cachedProducts = await redisClient.get(`products:user?page=${page}&perPage=${perPage}`);
         if (cachedProducts) {
             console.log('Lấy products user từ Cache');
             return res.status(200).json({
@@ -313,7 +313,7 @@ const getProductsUser = async (req, res) => {
 
         // Lưu vào Redis với TTL
         redisClient.setex(
-            `productsUser?page=${page}&perPage=${perPage}`,
+            `products:user?page=${page}&perPage=${perPage}`,
             parseInt(process.env.DEFAULT_EXPIRATION),
             JSON.stringify(products)
         );
@@ -1104,15 +1104,33 @@ const deleteMultipleProductSize = async (req, res) => {
     }
 };
 
-const getDetailsProduct = async (req, res) => {
+const getDetailsProductFromUser = async (req, res) => {
     try {
-        const product = await ProductModel.findById(req.params.id).populate('category');
+        const productId = req.params.id;
+        const cacheKey = `product:user:${productId}`;
+
+        // Kiểm tra cache
+        const cacheDetailsProduct = await redisClient.get(cacheKey);
+        if (cacheDetailsProduct) {
+            console.log('Lấy details product từ cache');
+            return res.status(200).json({
+                success: true,
+                product: JSON.parse(cacheDetailsProduct),
+            });
+        }
+
+        // Query DB
+        console.log('Lấy details product từ DB');
+        const product = await ProductModel.findById(productId).populate('category');
         if (!product) {
             return res.status(400).json({
                 success: false,
                 message: 'Không tìm thấy sản phẩm với id này',
             });
         }
+
+        redisClient.setex(cacheKey, process.env.DEFAULT_EXPIRATION, JSON.stringify(product));
+
         return res.status(200).json({
             success: true,
             product,
@@ -1650,7 +1668,7 @@ export {
     deleteMultipleProductWeight,
     deleteProductSize,
     deleteMultipleProductSize,
-    getDetailsProduct,
+    getDetailsProductFromUser,
     removeImageFromCloudinary,
     updateProduct,
     updateProductRam,

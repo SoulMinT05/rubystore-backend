@@ -16,7 +16,7 @@ import {
     getProductsCount,
     getProductsByFeature,
     deleteProduct,
-    getDetailsProduct,
+    getDetailsProductFromUser,
     updateProduct,
     updateProductRam,
     deleteMultipleProduct,
@@ -45,8 +45,10 @@ import upload from '../ middlewares/multer.js';
 
 const productRouter = Router();
 
+// Home page + Chi tiết sản phẩm
 productRouter.get('/all-products-category-id/:id', getProductsByCategoryId);
 productRouter.get('/all-products-sub-category-id/:id', getProductsBySubCategoryId);
+
 productRouter.get('/all-products-third-sub-category-id/:id', getProductsByThirdSubCategoryId);
 
 productRouter.delete('/ram/deleteMultipleProductRam', verifyAccessToken, deleteMultipleProductRam);
@@ -71,6 +73,7 @@ productRouter.get('/all-products-ram', getProductsRam);
 productRouter.get('/all-products-weight', getProductsWeight);
 productRouter.get('/all-products-size', getProductsSize);
 
+// CHƯA XÀI
 productRouter.get('/all-products-category-name', getProductsByCategoryName);
 productRouter.get('/all-products-sub-category-name', getProductsBySubCategoryName);
 productRouter.get('/all-products-third-sub-category-name', getProductsByThirdSubCategoryName);
@@ -88,7 +91,7 @@ productRouter.post('/save-search-history', verifyAccessToken, saveSearchHistory)
 
 productRouter.delete('/deleteMultipleProduct', verifyAccessToken, deleteMultipleProduct);
 productRouter.delete('/:id', verifyAccessToken, deleteProduct);
-productRouter.get('/:id', getDetailsProduct);
+productRouter.get('/:id', getDetailsProductFromUser);
 productRouter.put('/:id', verifyAccessToken, upload.array('images'), updateProduct);
 
 export default productRouter;

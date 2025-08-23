@@ -10,6 +10,8 @@ import { verifyEmailHtml } from '../utils/emailHtml.js';
 import generateAccessToken from '../utils/generateAccessToken.js';
 import generateRefreshToken from '../utils/generateRefreshToken.js';
 
+import redisClient from '../config/redis.js';
+
 import { v2 as cloudinary } from 'cloudinary';
 import ReviewModel from '../models/ReviewModel.js';
 import {
@@ -234,6 +236,25 @@ const login = async (req, res) => {
         res.cookie('accessToken', accessToken, cookiesOptionAccessToken);
         res.cookie('refreshToken', refreshToken, cookiesOptionRefreshToken);
 
+        // Lưu vào cache
+        const userCache = {
+            _id: user._id,
+            email: user.email,
+            name: user.name,
+            phoneNumber: user.phoneNumber,
+            address: user.address,
+            avatar: user.avatar,
+            role: user.role,
+            orderHistory: user.orderHistory,
+            wishlist: user.wishlist,
+            shoppingCart: user.shoppingCart,
+            checkoutToken: user.checkoutToken,
+            searchHistory: user.searchHistory,
+            notifications: user.notifications,
+            lastLoginDate: new Date(),
+        };
+        redisClient.setex(`user:${user._id}`, process.env.USER_EXPIRATION, JSON.stringify(userCache));
+
         return res.status(200).json({
             success: true,
             message: 'Đăng nhập thành công',
@@ -250,177 +271,351 @@ const login = async (req, res) => {
         });
     }
 };
+// const authWithGoogle = async (req, res) => {
+//     const { name, email, avatar, phoneNumber, role } = req.body;
+//     try {
+//         const existingUser = await UserModel.findOne({ email });
+//         if (!existingUser) {
+//             const user = await UserModel.create({
+//                 name,
+//                 phoneNumber,
+//                 email,
+//                 password: 'null',
+//                 avatar,
+//                 role,
+//                 emailVerified: true,
+//                 signUpWithGoogle: true,
+//             });
+//             await user.save();
+
+//             const accessToken = await generateAccessToken(user._id, user.role);
+//             const refreshToken = await generateRefreshToken(user._id);
+
+//             await UserModel.findByIdAndUpdate(user?._id, {
+//                 lastLoginDate: new Date(),
+//             });
+
+//             const cookiesOptionAccessToken = {
+//                 secure: true, // Dùng HTTPS
+//                 sameSite: 'Strict',
+//                 maxAge: 10 * 60 * 1000, // 10 phút (đổi theo bạn config expiresIn bên JW
+//             };
+//             const cookiesOptionRefreshToken = {
+//                 httpOnly: true,
+//                 secure: true,
+//                 sameSite: 'Strict',
+//                 maxAge: 7 * 24 * 60 * 60 * 1000, // 7 ngày
+//             };
+//             res.cookie('accessToken', accessToken, cookiesOptionAccessToken);
+//             res.cookie('refreshToken', refreshToken, cookiesOptionRefreshToken);
+
+//             return res.status(200).json({
+//                 success: true,
+//                 message: 'Đăng nhập bằng email thành công',
+//                 data: {
+//                     accessToken,
+//                     refreshToken,
+//                 },
+//             });
+//         } else {
+//             const accessToken = await generateAccessToken(existingUser._id, existingUser.role);
+//             const refreshToken = await generateRefreshToken(existingUser._id);
+
+//             await UserModel.findByIdAndUpdate(existingUser?._id, {
+//                 lastLoginDate: new Date(),
+//                 emailVerified: true,
+//             });
+
+//             const cookiesOptionAccessToken = {
+//                 secure: true, // Dùng HTTPS
+//                 sameSite: 'Strict',
+//                 maxAge: 10 * 60 * 1000, // 10 phút (đổi theo bạn config expiresIn bên JW
+//             };
+//             const cookiesOptionRefreshToken = {
+//                 httpOnly: true,
+//                 secure: true,
+//                 sameSite: 'Strict',
+//                 maxAge: 7 * 24 * 60 * 60 * 1000, // 7 ngày
+//             };
+//             res.cookie('accessToken', accessToken, cookiesOptionAccessToken);
+//             res.cookie('refreshToken', refreshToken, cookiesOptionRefreshToken);
+
+//             return res.status(200).json({
+//                 success: true,
+//                 message: 'Đăng nhập bằng email thành công',
+//                 data: {
+//                     accessToken,
+//                     refreshToken,
+//                 },
+//             });
+//         }
+//     } catch (error) {
+//         return res.status(500).json({
+//             message: error.message || error,
+//             success: false,
+//         });
+//     }
+// };
+
 const authWithGoogle = async (req, res) => {
     const { name, email, avatar, phoneNumber, role } = req.body;
+
     try {
-        const existingUser = await UserModel.findOne({ email });
-        if (!existingUser) {
-            const user = await UserModel.create({
+        let user = await UserModel.findOne({ email });
+
+        if (!user) {
+            // User mới
+            console.log('User mới');
+            user = await UserModel.create({
                 name,
                 phoneNumber,
                 email,
-                password: 'null',
+                password: 'null', // không dùng password
                 avatar,
-                role,
+                role: role || 'user',
                 emailVerified: true,
                 signUpWithGoogle: true,
             });
             await user.save();
-
-            const accessToken = await generateAccessToken(user._id, user.role);
-            const refreshToken = await generateRefreshToken(user._id);
-
-            await UserModel.findByIdAndUpdate(user?._id, {
-                lastLoginDate: new Date(),
-            });
-
-            const cookiesOptionAccessToken = {
-                secure: true, // Dùng HTTPS
-                sameSite: 'Strict',
-                maxAge: 10 * 60 * 1000, // 10 phút (đổi theo bạn config expiresIn bên JW
-            };
-            const cookiesOptionRefreshToken = {
-                httpOnly: true,
-                secure: true,
-                sameSite: 'Strict',
-                maxAge: 7 * 24 * 60 * 60 * 1000, // 7 ngày
-            };
-            res.cookie('accessToken', accessToken, cookiesOptionAccessToken);
-            res.cookie('refreshToken', refreshToken, cookiesOptionRefreshToken);
-
-            return res.status(200).json({
-                success: true,
-                message: 'Đăng nhập bằng email thành công',
-                data: {
-                    accessToken,
-                    refreshToken,
-                },
-            });
         } else {
-            const accessToken = await generateAccessToken(existingUser._id, existingUser.role);
-            const refreshToken = await generateRefreshToken(existingUser._id);
-
-            await UserModel.findByIdAndUpdate(existingUser?._id, {
-                lastLoginDate: new Date(),
-                emailVerified: true,
-            });
-
-            const cookiesOptionAccessToken = {
-                secure: true, // Dùng HTTPS
-                sameSite: 'Strict',
-                maxAge: 10 * 60 * 1000, // 10 phút (đổi theo bạn config expiresIn bên JW
-            };
-            const cookiesOptionRefreshToken = {
-                httpOnly: true,
-                secure: true,
-                sameSite: 'Strict',
-                maxAge: 7 * 24 * 60 * 60 * 1000, // 7 ngày
-            };
-            res.cookie('accessToken', accessToken, cookiesOptionAccessToken);
-            res.cookie('refreshToken', refreshToken, cookiesOptionRefreshToken);
-
-            return res.status(200).json({
-                success: true,
-                message: 'Đăng nhập bằng email thành công',
-                data: {
-                    accessToken,
-                    refreshToken,
-                },
-            });
+            // User đã tồn tại → cập nhật lastLoginDate & emailVerified
+            console.log('User đã tồn tại');
+            user.lastLoginDate = new Date();
+            user.signUpWithGoogle = true;
+            user.emailVerified = true;
+            await user.save();
         }
+
+        // Tạo JWT
+        const accessToken = await generateAccessToken(user._id, user.role);
+        const refreshToken = await generateRefreshToken(user._id);
+
+        // Set cookie
+        const cookiesOptionAccessToken = {
+            secure: true,
+            sameSite: 'Strict',
+            maxAge: 10 * 60 * 1000, // 10 phút
+        };
+        const cookiesOptionRefreshToken = {
+            httpOnly: true,
+            secure: true,
+            sameSite: 'Strict',
+            maxAge: 7 * 24 * 60 * 60 * 1000, // 7 ngày
+        };
+        res.cookie('accessToken', accessToken, cookiesOptionAccessToken);
+        res.cookie('refreshToken', refreshToken, cookiesOptionRefreshToken);
+
+        // Lưu thông tin user vào Redis
+        const cacheKey = `user:${user._id}`;
+        const userCache = {
+            _id: user._id,
+            email: user.email,
+            name: user.name,
+            phoneNumber: user.phoneNumber,
+            address: user.address,
+            avatar: user.avatar,
+            role: user.role,
+            orderHistory: user.orderHistory,
+            wishlist: user.wishlist,
+            shoppingCart: user.shoppingCart,
+            checkoutToken: user.checkoutToken,
+            searchHistory: user.searchHistory,
+            notifications: user.notifications,
+            lastLoginDate: new Date(),
+        };
+
+        // TTL 10 phút (trùng với accessToken)
+        await redisClient.setEx(cacheKey, process.env.USER_EXPIRATION, JSON.stringify(userCache));
+
+        return res.status(200).json({
+            success: true,
+            message: 'Đăng nhập bằng Google thành công',
+            data: {
+                accessToken,
+                refreshToken,
+            },
+        });
     } catch (error) {
+        console.error(error);
         return res.status(500).json({
-            message: error.message || error,
             success: false,
+            message: error.message || 'Đăng nhập thất bại',
         });
     }
 };
 
 const authWithFacebook = async (req, res) => {
     const { name, email, avatar, phoneNumber, role } = req.body;
+
     try {
-        const existingUser = await UserModel.findOne({ email });
-        if (!existingUser) {
-            const user = await UserModel.create({
+        let user = await UserModel.findOne({ email });
+
+        if (!user) {
+            // User mới
+            console.log('User mới');
+            user = await UserModel.create({
                 name,
                 phoneNumber,
                 email,
-                password: 'null',
+                password: 'null', // không dùng password
                 avatar,
-                role,
+                role: role || 'user',
                 emailVerified: true,
                 signInWithFacebook: true,
             });
             await user.save();
-
-            const accessToken = await generateAccessToken(user._id, user.role);
-            const refreshToken = await generateRefreshToken(user._id);
-
-            await UserModel.findByIdAndUpdate(user?._id, {
-                lastLoginDate: new Date(),
-            });
-
-            const cookiesOptionAccessToken = {
-                secure: true, // Dùng HTTPS
-                sameSite: 'Strict',
-                maxAge: 10 * 60 * 1000, // 10 phút (đổi theo bạn config expiresIn bên JW
-            };
-            const cookiesOptionRefreshToken = {
-                httpOnly: true,
-                secure: true,
-                sameSite: 'Strict',
-                maxAge: 7 * 24 * 60 * 60 * 1000, // 7 ngày
-            };
-            res.cookie('accessToken', accessToken, cookiesOptionAccessToken);
-            res.cookie('refreshToken', refreshToken, cookiesOptionRefreshToken);
-
-            return res.status(200).json({
-                success: true,
-                message: 'Đăng nhập bằng facebook thành công',
-                data: {
-                    accessToken,
-                    refreshToken,
-                },
-            });
         } else {
-            const accessToken = await generateAccessToken(existingUser._id, existingUser.role);
-            const refreshToken = await generateRefreshToken(existingUser._id);
-
-            await UserModel.findByIdAndUpdate(existingUser?._id, {
-                lastLoginDate: new Date(),
-                emailVerified: true,
-            });
-
-            const cookiesOptionAccessToken = {
-                secure: true, // Dùng HTTPS
-                sameSite: 'Strict',
-                maxAge: 10 * 60 * 1000, // 10 phút (đổi theo bạn config expiresIn bên JW
-            };
-            const cookiesOptionRefreshToken = {
-                httpOnly: true,
-                secure: true,
-                sameSite: 'Strict',
-                maxAge: 7 * 24 * 60 * 60 * 1000, // 7 ngày
-            };
-            res.cookie('accessToken', accessToken, cookiesOptionAccessToken);
-            res.cookie('refreshToken', refreshToken, cookiesOptionRefreshToken);
-
-            return res.status(200).json({
-                success: true,
-                message: 'Đăng nhập bằng facebook thành công',
-                data: {
-                    accessToken,
-                    refreshToken,
-                },
-            });
+            // User đã tồn tại → cập nhật lastLoginDate & emailVerified
+            console.log('User đã tồn tại');
+            user.lastLoginDate = new Date();
+            user.signInWithFacebook = true;
+            user.emailVerified = true;
+            await user.save();
         }
+
+        // Tạo JWT
+        const accessToken = await generateAccessToken(user._id, user.role);
+        const refreshToken = await generateRefreshToken(user._id);
+
+        // Set cookie
+        const cookiesOptionAccessToken = {
+            secure: true,
+            sameSite: 'Strict',
+            maxAge: 10 * 60 * 1000, // 10 phút
+        };
+        const cookiesOptionRefreshToken = {
+            httpOnly: true,
+            secure: true,
+            sameSite: 'Strict',
+            maxAge: 7 * 24 * 60 * 60 * 1000, // 7 ngày
+        };
+        res.cookie('accessToken', accessToken, cookiesOptionAccessToken);
+        res.cookie('refreshToken', refreshToken, cookiesOptionRefreshToken);
+
+        // Lưu thông tin user vào Redis
+        const cacheKey = `user:${user._id}`;
+        const userCache = {
+            _id: user._id,
+            email: user.email,
+            name: user.name,
+            phoneNumber: user.phoneNumber,
+            address: user.address,
+            avatar: user.avatar,
+            role: user.role,
+            orderHistory: user.orderHistory,
+            wishlist: user.wishlist,
+            shoppingCart: user.shoppingCart,
+            checkoutToken: user.checkoutToken,
+            searchHistory: user.searchHistory,
+            notifications: user.notifications,
+            lastLoginDate: new Date(),
+        };
+
+        // TTL 10 phút (trùng với accessToken)
+        await redisClient.setEx(cacheKey, process.env.USER_EXPIRATION, JSON.stringify(userCache));
+
+        return res.status(200).json({
+            success: true,
+            message: 'Đăng nhập bằng Google thành công',
+            data: {
+                accessToken,
+                refreshToken,
+            },
+        });
     } catch (error) {
+        console.error(error);
         return res.status(500).json({
-            message: error.message || error,
             success: false,
+            message: error.message || 'Đăng nhập thất bại',
         });
     }
 };
+
+// const authWithFacebook = async (req, res) => {
+//     const { name, email, avatar, phoneNumber, role } = req.body;
+//     try {
+//         const existingUser = await UserModel.findOne({ email });
+//         if (!existingUser) {
+//             const user = await UserModel.create({
+//                 name,
+//                 phoneNumber,
+//                 email,
+//                 password: 'null',
+//                 avatar,
+//                 role,
+//                 emailVerified: true,
+//                 signInWithFacebook: true,
+//             });
+//             await user.save();
+
+//             const accessToken = await generateAccessToken(user._id, user.role);
+//             const refreshToken = await generateRefreshToken(user._id);
+
+//             await UserModel.findByIdAndUpdate(user?._id, {
+//                 lastLoginDate: new Date(),
+//             });
+
+//             const cookiesOptionAccessToken = {
+//                 secure: true, // Dùng HTTPS
+//                 sameSite: 'Strict',
+//                 maxAge: 10 * 60 * 1000, // 10 phút (đổi theo bạn config expiresIn bên JW
+//             };
+//             const cookiesOptionRefreshToken = {
+//                 httpOnly: true,
+//                 secure: true,
+//                 sameSite: 'Strict',
+//                 maxAge: 7 * 24 * 60 * 60 * 1000, // 7 ngày
+//             };
+//             res.cookie('accessToken', accessToken, cookiesOptionAccessToken);
+//             res.cookie('refreshToken', refreshToken, cookiesOptionRefreshToken);
+
+//             return res.status(200).json({
+//                 success: true,
+//                 message: 'Đăng nhập bằng facebook thành công',
+//                 data: {
+//                     accessToken,
+//                     refreshToken,
+//                 },
+//             });
+//         } else {
+//             const accessToken = await generateAccessToken(existingUser._id, existingUser.role);
+//             const refreshToken = await generateRefreshToken(existingUser._id);
+
+//             await UserModel.findByIdAndUpdate(existingUser?._id, {
+//                 lastLoginDate: new Date(),
+//                 emailVerified: true,
+//             });
+
+//             const cookiesOptionAccessToken = {
+//                 secure: true, // Dùng HTTPS
+//                 sameSite: 'Strict',
+//                 maxAge: 10 * 60 * 1000, // 10 phút (đổi theo bạn config expiresIn bên JW
+//             };
+//             const cookiesOptionRefreshToken = {
+//                 httpOnly: true,
+//                 secure: true,
+//                 sameSite: 'Strict',
+//                 maxAge: 7 * 24 * 60 * 60 * 1000, // 7 ngày
+//             };
+//             res.cookie('accessToken', accessToken, cookiesOptionAccessToken);
+//             res.cookie('refreshToken', refreshToken, cookiesOptionRefreshToken);
+
+//             return res.status(200).json({
+//                 success: true,
+//                 message: 'Đăng nhập bằng facebook thành công',
+//                 data: {
+//                     accessToken,
+//                     refreshToken,
+//                 },
+//             });
+//         }
+//     } catch (error) {
+//         return res.status(500).json({
+//             message: error.message || error,
+//             success: false,
+//         });
+//     }
+// };
 
 const logout = async (req, res) => {
     try {
@@ -444,6 +639,9 @@ const logout = async (req, res) => {
             },
             { new: true }
         );
+
+        await redisClient.del(`user:${userId}`);
+
         return res.status(200).json({
             success: true,
             message: 'Đăng xuất thành công',
@@ -479,6 +677,8 @@ const uploadAvatar = async (req, res) => {
 
         user.avatar = image.path;
         await user.save();
+
+        await redisClient.del(`user:${userId}`);
 
         return res.status(200).json({
             success: true,
@@ -546,6 +746,8 @@ const updateInfoUser = async (req, res) => {
             },
             { new: true }
         );
+
+        await redisClient.del(`user:${_id}`);
 
         return res.status(200).json({
             success: true,
@@ -750,6 +952,21 @@ const changePassword = async (req, res) => {
 const getUserDetails = async (req, res) => {
     try {
         const { _id } = req.user;
+
+        // Cache
+        const cacheKey = `user:${_id}`;
+        const cacheUserDetails = await redisClient.get(cacheKey);
+        if (cacheUserDetails) {
+            console.log('Lấy user details từ cache');
+            return res.status(200).json({
+                success: true,
+                message: 'Thông tin người dùng',
+                user: JSON.parse(cacheUserDetails),
+            });
+        }
+
+        // Query DB
+        console.log('Lấy user details từ DB');
         const user = await UserModel.findById(_id).select('-password -refreshToken');
         if (!user) {
             return res.status(400).json({
@@ -757,6 +974,9 @@ const getUserDetails = async (req, res) => {
                 message: 'Không tìm thấy người dùng',
             });
         }
+
+        redisClient.setex(cacheKey, process.env.USER_EXPIRATION, JSON.stringify(user));
+
         return res.status(200).json({
             success: true,
             message: 'Thông tin người dùng',
@@ -1386,6 +1606,7 @@ const updateAddress = async (req, res) => {
         };
 
         await user.save();
+        await redisClient.del(`user:${userId}`);
 
         res.status(200).json({ success: true, message: 'Cập nhật địa chỉ thành công', address: user.address });
     } catch (error) {
