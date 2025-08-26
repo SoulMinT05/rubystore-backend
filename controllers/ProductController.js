@@ -274,7 +274,7 @@ const getProductsAdmin = async (req, res) => {
 const getProductsUser = async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
-        const perPage = parseInt(req.query.perPage) || 10;
+        const perPage = parseInt(req.query.perPage) || process.env.LIMIT_PRODUCTS;
         const totalProducts = await ProductModel.countDocuments({ isPublished: true });
         const totalPages = Math.ceil(totalProducts / perPage);
 
@@ -1395,8 +1395,8 @@ const filterProducts = async (req, res) => {
         minPrice,
         maxPrice,
         rating,
-        page,
-        limit,
+        page = 1,
+        limit = process.env.LIMIT_PRODUCTS,
         keyword,
         stockStatus,
     } = req.body;
@@ -1441,19 +1441,53 @@ const filterProducts = async (req, res) => {
     }
 
     try {
+        // ✅ Tạo cache key duy nhất từ filter
+        const cacheKey =
+            `products` +
+            (categoryId?.length ? `:cat=${categoryId.join(',')}` : '') +
+            (subCategoryId?.length ? `:sub=${subCategoryId.join(',')}` : '') +
+            (thirdSubCategoryId?.length ? `:third=${thirdSubCategoryId.join(',')}` : '') +
+            (minPrice ? `:min=${minPrice}` : '') +
+            (maxPrice ? `:max=${maxPrice}` : '') +
+            (rating?.length ? `:rating=${rating.join(',')}` : '') +
+            (keyword ? `:kw=${keyword}` : '') +
+            (stockStatus ? `:stock=${stockStatus}` : '') +
+            `:page=${page || 1}:limit=${limit || process.env.LIMIT_PRODUCTS}`;
+
+        // ✅ Check cache
+        const cachedData = await redisClient.get(cacheKey);
+        if (cachedData) {
+            console.log('Lấy filter products từ cache');
+            // return res.status(200).json({
+            //      success: true,
+            // products: JSON.parse(cachedData),
+            // total,
+            // page: parseInt(page),
+            // totalPages: Math.ceil(total / limit),
+            // });
+            return res.status(200).json(JSON.parse(cachedData));
+        }
+
+        // ✅ Nếu chưa có cache thì query DB
+        console.log('Lấy filter products từ DB');
         const products = await ProductModel.find(filters)
             .populate('category')
             .skip((page - 1) * limit)
             .limit(parseInt(limit));
         const total = await ProductModel.countDocuments(filters);
 
-        return res.status(200).json({
+        const response = {
             success: true,
             products,
             total,
             page: parseInt(page),
             totalPages: Math.ceil(total / limit),
-        });
+        };
+
+        // ✅ Lưu vào cache (TTL 60 giây)
+        await redisClient.setEx(cacheKey, 60, JSON.stringify(response));
+
+        return res.status(200).json(response);
     } catch (error) {
         return res.status(500).json({
             message: error.message || error,
