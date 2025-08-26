@@ -125,7 +125,7 @@ export const getStaffsInSidebar = async (req, res) => {
                 message: 'Không tìm thấy người dùng',
             });
         }
-        const staffs = await StaffModel.find();
+        const staffs = await StaffModel.find().select('name email avatar status isOnline lastOnline');
         return res.status(200).json({
             success: true,
             staffs,
@@ -139,7 +139,7 @@ export const getStaffsInSidebar = async (req, res) => {
 export const getUsersInSidebar = async (req, res) => {
     try {
         const userId = req.user._id;
-        const user = await StaffModel.findById(userId);
+        const user = await StaffModel.findById(userId).select('name email avatar status isOnline lastOnline');
 
         if (!user) {
             return res.status(404).json({
@@ -162,7 +162,7 @@ export const getUserDetails = async (req, res) => {
     try {
         const { userId } = req.params;
 
-        const user = await UserModel.findById(userId);
+        const user = await UserModel.findById(userId).select('name email avatar status isOnline lastOnline');
         if (!user) {
             return res.status(404).json({
                 success: false,
@@ -184,7 +184,7 @@ export const getStaffDetails = async (req, res) => {
     try {
         const { staffId } = req.params;
 
-        const staff = await StaffModel.findById(staffId);
+        const staff = await StaffModel.findById(staffId).select('name email avatar status isOnline lastOnline');
         if (!staff) {
             return res.status(404).json({
                 success: false,

@@ -73,10 +73,12 @@ const staffSchema = mongoose.Schema(
             type: Boolean,
             default: false,
         },
+        isOnline: { type: Boolean, default: false },
+        lastOnline: { type: Date, default: null },
     },
     {
         timestamps: true,
-    },
+    }
 );
 
 const StaffModel = mongoose.model('staff', staffSchema);

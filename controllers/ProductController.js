@@ -1458,13 +1458,6 @@ const filterProducts = async (req, res) => {
         const cachedData = await redisClient.get(cacheKey);
         if (cachedData) {
             console.log('Lấy filter products từ cache');
-            // return res.status(200).json({
-            //      success: true,
-            // products: JSON.parse(cachedData),
-            // total,
-            // page: parseInt(page),
-            // totalPages: Math.ceil(total / limit),
-            // });
             return res.status(200).json(JSON.parse(cachedData));
         }
 

@@ -151,6 +151,8 @@ const userSchema = mongoose.Schema(
             type: Boolean,
             default: false,
         },
+        isOnline: { type: Boolean, default: false },
+        lastOnline: { type: Date, default: null },
     },
     {
         timestamps: true,

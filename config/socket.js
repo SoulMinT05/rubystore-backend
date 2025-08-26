@@ -1,6 +1,9 @@
 // socket.js
 import { Server } from 'socket.io';
 
+import UserModel from '../models/UserModel.js';
+import StaffModel from '../models/StaffModel.js';
+
 let io = null;
 
 const onlineUsers = new Set();
@@ -15,27 +18,94 @@ export const initSocket = (server) => {
 
     io.on('connection', (socket) => {
         // CONNECTED
+        const role = socket.handshake.query.role;
+
         console.log('User connected:', socket.id);
         onlineUsers.add(socket.id);
+
+        console.log('Online users có socket id:', Array.from(onlineUsers));
 
         // ✅ Khi client gửi userId, cho socket join vào room
         socket.on('joinRoom', (userId) => {
             if (userId) {
                 socket.join(userId.toString()); // Join vào room có tên là userId
-                console.log(`Socket ${socket.id} joined room ${userId}`);
+                console.log(`Socket ${socket.id} joined room with userId: ${userId}`);
             }
         });
-        socket.on('joinMessageRoom', (userId) => {
+        socket.on('joinMessageRoom', async (userId) => {
             if (userId) {
+                console.log('role: ', role);
                 socket.join(`message-${userId}`); // Join vào room có tên là userId
-                console.log(`Socket ${socket.id} joined room message-${userId}`);
+                console.log(`Socket ${socket.id} có role: ${role} joined room message-${userId}`);
+
+                // 🔥 Cập nhật trạng thái online theo role
+                if (role === 'admin' || role === 'staff') {
+                    await StaffModel.findByIdAndUpdate(userId, { isOnline: true }).exec();
+
+                    console.log(`Người dùng userId ${userId} với role ${role} đang online`);
+
+                    // Emit cho FE biết staff này online
+                    io.emit('staffOnlineStatus', {
+                        userId,
+                        role,
+                        isOnline: true,
+                    });
+                } else if (role === 'user') {
+                    await UserModel.findByIdAndUpdate(userId, { isOnline: true }).exec();
+
+                    console.log(`Người dùng userId ${userId} với role ${role} đang online`);
+
+                    io.emit('userOnlineStatus', {
+                        userId,
+                        role,
+                        isOnline: true,
+                    });
+                }
+
+                // Lưu userId vào socket để dùng khi disconnect
+                socket.userId = userId;
+                socket.role = role;
             }
         });
 
         // DISCONNECTED
-        socket.on('disconnect', () => {
+        socket.on('disconnect', async () => {
             console.log('User disconnected:', socket.id);
             onlineUsers.delete(socket.id);
+
+            console.log('Online users có socket id:', Array.from(onlineUsers));
+
+            if (socket.userId) {
+                if (socket.role === 'staff' || socket.role === 'admin') {
+                    await StaffModel.findByIdAndUpdate(socket.userId, {
+                        isOnline: false,
+                        lastOnline: new Date(),
+                    }).exec();
+
+                    console.log(`Người dùng userId ${socket.userId} với role ${role} đã offline`);
+
+                    io.emit('staffOnlineStatus', {
+                        userId: socket.userId,
+                        role: socket.role,
+                        isOnline: false,
+                        lastOnline: new Date(),
+                    });
+                } else if (socket.role === 'user') {
+                    await UserModel.findByIdAndUpdate(socket.userId, {
+                        isOnline: false,
+                        lastOnline: new Date(),
+                    }).exec();
+
+                    console.log(`Người dùng userId ${socket.userId} với role ${role} đã offline`);
+
+                    io.emit('userOnlineStatus', {
+                        userId: socket.userId,
+                        role: socket.role,
+                        isOnline: false,
+                        lastOnline: new Date(),
+                    });
+                }
+            }
         });
     });
 };

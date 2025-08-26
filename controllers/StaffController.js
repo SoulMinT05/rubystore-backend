@@ -220,6 +220,8 @@ const login = async (req, res) => {
         res.cookie('accessToken', accessToken, cookiesOptionAccessToken);
         res.cookie('refreshToken', refreshToken, cookiesOptionRefreshToken);
 
+        const { password: _, ...userWithoutPassword } = user._doc;
+
         return res.status(200).json({
             success: true,
             message: 'Đăng nhập thành công',
@@ -227,6 +229,7 @@ const login = async (req, res) => {
                 accessToken,
                 refreshToken,
             },
+            user: userWithoutPassword,
         });
     } catch (error) {
         return res.status(500).json({
