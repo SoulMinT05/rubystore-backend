@@ -6,13 +6,15 @@ It supports a full range of core features including:
 -   **OAuth2 Login** – sign-in quickly with Google
 -   **OTP Email Verification** – secure account registration
 -   **Product Browsing** – explore a wide range of products
--   **Product Reviewing** - review real-time
+-   **Product Filtering & Sorting** – filter products and sort by multiple criteria
 -   **Product Details** – images, prices, and descriptions
+-   **Product Reviewing** - review real-time
 -   **Shopping Cart** – manage items before checkout
 -   **Vouchers** – apply discount codes
 -   **Checkout** – complete orders smoothly
--   **Notifications** – real-time order updates
--   **Messaging** – built-in chat system
+-   **Notifications** – real-time order, review and message updates
+-   **Messaging** – send text, images, and view online status
+-   **Caching (Redis)** – optimize performance by caching product lists, filter products, categories, and blogs
 
 This repository contains the backend codebase for the system.
 
@@ -22,7 +24,7 @@ Check out: [RubyStore (Client)](https://github.com/SoulMinT05/rubystore-frontend
 
 -   **Runtime**: Node.js
 -   **Framework**: Express.js
--   **Database**: MongoDB (via Mongoose)
+-   **Database**: MongoDB (via Mongoose), Redis
 -   **Authentication**: Passport.js with JSON Web Tokens (JWT)
 -   **Security**: Helmet, Cookie-parser, CORS
 -   **File Upload**: Multer, Cloudinary (with multer-storage-cloudinary)
