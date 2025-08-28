@@ -1,6 +1,7 @@
 import VoucherModel from '../models/VoucherModel.js';
 import StaffModel from '../models/StaffModel.js';
 import { v2 as cloudinary } from 'cloudinary';
+import UserModel from '../models/UserModel.js';
 
 cloudinary.config({
     cloud_name: process.env.CLOUDINARY_NAME,
@@ -137,12 +138,36 @@ const applyVoucher = async (req, res) => {
     }
 };
 
-const getAllVouchers = async (req, res) => {
+const getAllVouchersFromUser = async (req, res) => {
     try {
         const userId = req.user._id;
-        console.log('userId: ', userId);
+        const user = await UserModel.findById(userId);
+
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy người dùng',
+            });
+        }
+
+        const now = new Date();
+        const vouchers = await VoucherModel.find({
+            expiresAt: { $gte: now },
+        });
+        return res.status(200).json({
+            success: true,
+            vouchers,
+        });
+    } catch (error) {
+        console.error('getAllVouchersFromUser error:', error);
+        return res.status(500).json({ success: false, message: 'Lỗi máy chủ' });
+    }
+};
+
+const getAllVouchersFromAdmin = async (req, res) => {
+    try {
+        const userId = req.user._id;
         const user = await StaffModel.findById(userId);
-        console.log('user: ', user);
 
         if (!user) {
             return res.status(404).json({
@@ -151,13 +176,12 @@ const getAllVouchers = async (req, res) => {
             });
         }
         const vouchers = await VoucherModel.find();
-        console.log('vouchers: ', vouchers);
         return res.status(200).json({
             success: true,
             vouchers,
         });
     } catch (error) {
-        console.error('getAllVouchers error:', error);
+        console.error('getAllVouchersFromAdmin error:', error);
         return res.status(500).json({ success: false, message: 'Lỗi máy chủ' });
     }
 };
@@ -322,7 +346,8 @@ const toggleVoucherActiveStatus = async (req, res) => {
 export {
     applyVoucher,
     createVoucher,
-    getAllVouchers,
+    getAllVouchersFromUser,
+    getAllVouchersFromAdmin,
     updateVoucher,
     getDetailsVoucher,
     deleteVoucher,

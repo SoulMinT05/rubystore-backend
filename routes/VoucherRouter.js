@@ -3,7 +3,8 @@ import { Router } from 'express';
 import {
     createVoucher,
     applyVoucher,
-    getAllVouchers,
+    getAllVouchersFromUser,
+    getAllVouchersFromAdmin,
     getDetailsVoucher,
     deleteVoucher,
     deleteMultipleVouchers,
@@ -21,7 +22,8 @@ voucherRouter.patch('/updateVoucher/:voucherId', verifyAccessToken, updateVouche
 
 voucherRouter.post('/createVoucher', verifyAccessToken, createVoucher);
 voucherRouter.post('/applyVoucher', verifyAccessToken, applyVoucher);
-voucherRouter.get('/getAllVouchers', verifyAccessToken, getAllVouchers);
+voucherRouter.get('/getAllVouchersFromUser', verifyAccessToken, getAllVouchersFromUser);
+voucherRouter.get('/getAllVouchers', verifyAccessToken, getAllVouchersFromAdmin);
 voucherRouter.delete('/deleteMultipleVouchers', verifyAccessToken, deleteMultipleVouchers);
 
 export default voucherRouter;

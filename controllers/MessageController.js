@@ -125,7 +125,24 @@ export const getStaffsInSidebar = async (req, res) => {
                 message: 'Không tìm thấy người dùng',
             });
         }
-        const staffs = await StaffModel.find().select('name email avatar status isOnline lastOnline');
+        // const staffs = await StaffModel.find().select('name email avatar status role isOnline lastOnline');
+        const { search } = req.query;
+
+        let query = {};
+        if (search && search.trim() !== '') {
+            query = {
+                name: { $regex: search, $options: 'i' }, // tìm không phân biệt hoa thường
+            };
+        }
+
+        const staffsQuery = StaffModel.find(query).select('name email avatar status role isOnline lastOnline');
+
+        if (!search || search.trim() === '') {
+            staffsQuery.limit(10);
+        }
+
+        const staffs = await staffsQuery;
+
         return res.status(200).json({
             success: true,
             staffs,
@@ -139,7 +156,7 @@ export const getStaffsInSidebar = async (req, res) => {
 export const getUsersInSidebar = async (req, res) => {
     try {
         const userId = req.user._id;
-        const user = await StaffModel.findById(userId).select('name email avatar status isOnline lastOnline');
+        const user = await StaffModel.findById(userId).select('name email avatar status role isOnline lastOnline');
 
         if (!user) {
             return res.status(404).json({
@@ -147,7 +164,23 @@ export const getUsersInSidebar = async (req, res) => {
                 message: 'Không tìm thấy người dùng',
             });
         }
-        const users = await UserModel.find();
+        // const users = await UserModel.find();
+        const { search } = req.query;
+
+        let query = {};
+        if (search && search.trim() !== '') {
+            query = {
+                name: { $regex: search, $options: 'i' }, // tìm không phân biệt hoa thường
+            };
+        }
+
+        const usersQuery = UserModel.find(query).select('name email avatar status role isOnline lastOnline');
+
+        if (!search || search.trim() === '') {
+            usersQuery.limit(10);
+        }
+
+        const users = await usersQuery;
         return res.status(200).json({
             success: true,
             users,
@@ -162,7 +195,7 @@ export const getUserDetails = async (req, res) => {
     try {
         const { userId } = req.params;
 
-        const user = await UserModel.findById(userId).select('name email avatar status isOnline lastOnline');
+        const user = await UserModel.findById(userId).select('name email avatar status role isOnline lastOnline');
         if (!user) {
             return res.status(404).json({
                 success: false,
@@ -184,7 +217,7 @@ export const getStaffDetails = async (req, res) => {
     try {
         const { staffId } = req.params;
 
-        const staff = await StaffModel.findById(staffId).select('name email avatar status isOnline lastOnline');
+        const staff = await StaffModel.findById(staffId).select('name email avatar status role isOnline lastOnline');
         if (!staff) {
             return res.status(404).json({
                 success: false,
