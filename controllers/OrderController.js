@@ -356,7 +356,17 @@ const getAllOrdersFromUser = async (req, res) => {
                 message: 'Không tìm thấy người dùng',
             });
         }
-        const orders = await OrderModel.find({ userId })
+
+        // Lọc theo tất cả hoặc orderStatus
+        const { orderStatus } = req.query;
+        const filter = {
+            userId,
+        };
+        if (orderStatus) {
+            filter.orderStatus = orderStatus;
+        }
+
+        const orders = await OrderModel.find(filter)
             .populate('userId', 'name email phoneNumber')
             .sort({ createdAt: -1 });
         return res.status(200).json({
