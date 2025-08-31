@@ -1,12 +1,13 @@
-// socket.js
 import { Server } from 'socket.io';
 
 import UserModel from '../models/UserModel.js';
 import StaffModel from '../models/StaffModel.js';
+import { printOnlineUsers, removeUserFromOnline } from '../utils/socketUtils.js';
 
 let io = null;
 
-const onlineUsers = new Set();
+const onlineUsers = new Map(); // Map(1) { 'user1' => Set(1) { 'socket1' } }
+// '6807819d2352180e82e5ae6e': [ 'Z0X2Nu-eEzNJyik0AAAF' ]
 
 export const initSocket = (server) => {
     io = new Server(server, {
@@ -17,95 +18,92 @@ export const initSocket = (server) => {
     });
 
     io.on('connection', (socket) => {
-        // CONNECTED
-        const role = socket.handshake.query.role;
+        console.log('User connected có socket:', socket.id);
 
-        console.log('User connected:', socket.id);
-        onlineUsers.add(socket.id);
-
-        console.log('Online users có socket id:', Array.from(onlineUsers));
-
-        // ✅ Khi client gửi userId, cho socket join vào room
-        socket.on('joinRoom', (userId) => {
+        socket.on('joinRoom', (userId, role) => {
             if (userId) {
                 socket.join(userId.toString()); // Join vào room có tên là userId
-                console.log(`Socket ${socket.id} joined room with userId: ${userId}`);
+                console.log(`Socket ${socket.id} có role: ${role} joined room with userId: ${userId}`);
             }
         });
-        socket.on('joinMessageRoom', async (userId) => {
-            if (userId) {
-                console.log('role: ', role);
-                socket.join(`message-${userId}`); // Join vào room có tên là userId
-                console.log(`Socket ${socket.id} có role: ${role} joined room message-${userId}`);
 
-                // 🔥 Cập nhật trạng thái online theo role
-                if (role === 'admin' || role === 'staff') {
+        socket.on('joinMessageRoom', async (userId, role) => {
+            if (!userId) return;
+
+            socket.join(`message-${userId}`);
+            console.log(`Socket ${socket.id} có role: ${role} joined message-${userId} room with userId: ${userId}`);
+
+            socket.userId = userId;
+            socket.role = role;
+
+            // Lưu socketId cho user
+            if (!onlineUsers.has(userId)) {
+                onlineUsers.set(userId, new Set());
+            }
+            onlineUsers.get(userId).add(socket.id);
+
+            printOnlineUsers(onlineUsers);
+
+            // Cập nhật DB online (chỉ lần đầu tiên user connect)
+            if (onlineUsers.get(userId).size === 1) {
+                if (role === 'staff' || role === 'admin') {
                     await StaffModel.findByIdAndUpdate(userId, { isOnline: true }).exec();
-
-                    console.log(`Người dùng userId ${userId} với role ${role} đang online`);
-
-                    // Emit cho FE biết staff này online
-                    io.emit('staffOnlineStatus', {
-                        userId,
-                        role,
-                        isOnline: true,
-                    });
+                    io.emit('staffOnlineStatus', { userId, role, isOnline: true });
                 } else if (role === 'user') {
                     await UserModel.findByIdAndUpdate(userId, { isOnline: true }).exec();
-
-                    console.log(`Người dùng userId ${userId} với role ${role} đang online`);
-
-                    io.emit('userOnlineStatus', {
-                        userId,
-                        role,
-                        isOnline: true,
-                    });
+                    io.emit('userOnlineStatus', { userId, role, isOnline: true });
                 }
-
-                // Lưu userId vào socket để dùng khi disconnect
-                socket.userId = userId;
-                socket.role = role;
             }
         });
 
-        // DISCONNECTED
-        socket.on('disconnect', async () => {
-            console.log('User disconnected:', socket.id);
-            onlineUsers.delete(socket.id);
+        // socket.on('disconnect', () => {
+        //     removeUserFromOnline(io, socket, onlineUsers);
+        // });
 
-            console.log('Online users có socket id:', Array.from(onlineUsers));
+        socket.on('disconnect', async () => {
+            console.log('❌ User disconnected có socket:', socket.id);
 
             if (socket.userId) {
-                if (socket.role === 'staff' || socket.role === 'admin') {
-                    await StaffModel.findByIdAndUpdate(socket.userId, {
-                        isOnline: false,
-                        lastOnline: new Date(),
-                    }).exec();
+                const sockets = onlineUsers.get(socket.userId);
+                console.log('sockets: ', sockets);
 
-                    console.log(`Người dùng userId ${socket.userId} với role ${role} đã offline`);
+                if (sockets) {
+                    sockets.delete(socket.id);
 
-                    io.emit('staffOnlineStatus', {
-                        userId: socket.userId,
-                        role: socket.role,
-                        isOnline: false,
-                        lastOnline: new Date(),
-                    });
-                } else if (socket.role === 'user') {
-                    await UserModel.findByIdAndUpdate(socket.userId, {
-                        isOnline: false,
-                        lastOnline: new Date(),
-                    }).exec();
+                    if (sockets.size === 0) {
+                        // chỉ khi user không còn socket nào
+                        onlineUsers.delete(socket.userId);
 
-                    console.log(`Người dùng userId ${socket.userId} với role ${role} đã offline`);
+                        if (socket.role === 'staff' || socket.role === 'admin') {
+                            await StaffModel.findByIdAndUpdate(socket.userId, {
+                                isOnline: false,
+                                lastOnline: new Date(),
+                            }).exec();
 
-                    io.emit('userOnlineStatus', {
-                        userId: socket.userId,
-                        role: socket.role,
-                        isOnline: false,
-                        lastOnline: new Date(),
-                    });
+                            io.emit('staffOnlineStatus', {
+                                userId: socket.userId,
+                                role: socket.role,
+                                isOnline: false,
+                                lastOnline: new Date(),
+                            });
+                        } else if (socket.role === 'user') {
+                            await UserModel.findByIdAndUpdate(socket.userId, {
+                                isOnline: false,
+                                lastOnline: new Date(),
+                            }).exec();
+
+                            io.emit('userOnlineStatus', {
+                                userId: socket.userId,
+                                role: socket.role,
+                                isOnline: false,
+                                lastOnline: new Date(),
+                            });
+                        }
+                    }
                 }
             }
+
+            printOnlineUsers(onlineUsers);
         });
     });
 };
@@ -113,6 +111,62 @@ export const initSocket = (server) => {
 export const getOnlineUsers = () => {
     return onlineUsers.size;
 };
+
+// LOGOUT FOR USER --> REMOVE SOCKET
+export const emitUserLogout1 = async (userId, role) => {
+    if (!io) throw new Error('Socket.io not initialized');
+
+    // Remove user khỏi onlineUsers
+    const sockets = onlineUsers.get(userId);
+    console.log('sockets: ', sockets);
+
+    if (sockets) {
+        sockets.forEach((socketId) => {
+            const socket = io.sockets.sockets.get(socketId);
+            console.log('socketId: ', socketId);
+            if (socket) {
+                socket.disconnect(true);
+                console.log('Disconnect user khi logout!');
+            }
+        });
+    }
+};
+
+export async function emitUserLogout(userId, role) {
+    if (!io) throw new Error('Socket.io not initialized');
+
+    console.log('🔌 User logout:', userId, role);
+
+    const sockets = onlineUsers.get(userId);
+
+    if (sockets && sockets.size > 0) {
+        // sockets.forEach((socketId) => {
+        //     const socket = io.sockets.sockets.get(socketId);
+        //     if (socket) {
+        //         socket.disconnect(true);
+        //         console.log(`➡️ Disconnected socket ${socketId} for user ${userId}`);
+        //     }
+        // });
+
+        // Sau khi disconnect hết socket => update DB và emit event
+        onlineUsers.delete(userId);
+
+        const updateData = {
+            isOnline: false,
+            lastOnline: new Date(),
+        };
+
+        if (role === 'staff' || role === 'admin') {
+            await StaffModel.findByIdAndUpdate(userId, updateData).exec();
+            io.emit('staffOnlineStatus', { ...updateData, userId, role });
+        } else if (role === 'user') {
+            await UserModel.findByIdAndUpdate(userId, updateData).exec();
+            io.emit('userOnlineStatus', { ...updateData, userId, role });
+        }
+    }
+
+    printOnlineUsers(onlineUsers);
+}
 
 // ORDER FOR USER
 export const emitOrderStatusUpdated = (orderId, newStatus) => {

@@ -29,7 +29,7 @@ export const verifyEmailHtml = (name, message, otp) => {
                     margin-bottom: 20px;
                 }
                 .header h1 {
-                    color: #4CAF50;
+                    color: #ff5252;
                 }
                 .content {
                     text-align: center;
@@ -59,12 +59,17 @@ export const verifyEmailHtml = (name, message, otp) => {
                 </div>
                 <div class="content">
                     <p>
-                        Chào ${name}. Cám ơn bạn đã ${message} ở RubyStore. Hãy dùng mã OTP bên dưới để
-                        xác minh địa chỉ email của bạn
+                        Chào ${name}
                     </p>
+                    <p>Cảm ơn bạn đã ${message} tại RubyStore.</p>
+                    <p>Vui lòng sử dụng mã OTP bên dưới và xác minh địa chỉ email của bạn.</p>
                     <div class="otp">${otp}</div>
-                    <p>Nếu bạn không phải là người thực hiện hành động này, bạn có thể bỏ
-                        qua email này
+                    <p>Mã OTP có hiệu lực trong <strong>${process.env.OTP_EXPIRATION} phút</strong>.</p>
+                    <p>
+                        Nếu bạn không phải là người thực hiện hành động, vui lòng bỏ qua email này.
+                    </p>
+                    <p style="font-style: italic; color: #6B7280; font-size: 15px;">
+                        Nếu mã OTP hết hạn hay có vấn đề lỗi xảy ra, vui lòng thực hiện đăng ký lại!
                     </p>
                 </div>
                 <div class="footer">

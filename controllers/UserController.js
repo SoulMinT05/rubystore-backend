@@ -22,10 +22,9 @@ import {
     emitNotificationStaffNewReview,
     emitReplyToReview,
     emitStaffNewReview,
+    emitUserLogout,
 } from '../config/socket.js';
 import NotificationModel from '../models/NotificationModel.js';
-
-import mongoose from 'mongoose';
 
 cloudinary.config({
     cloud_name: process.env.CLOUDINARY_NAME,
@@ -49,10 +48,27 @@ const register = async (req, res) => {
         // Kiểm tra xem người dùng đã đăng ký chưa
         user = await UserModel.findOne({ email });
         if (user) {
+            if (user.emailVerified) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Email này đã được đăng ký và xác minh! Bạn có thể đăng nhập',
+                });
+            }
+
             const isOtpExpired = user.otpExpires < Date.now();
+
+            // OTP còn hạn
+            if (!isOtpExpired) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Bạn đã đăng ký, vui lòng xác minh email bằng OTP!',
+                });
+            }
+
+            // OTP hết hạn → cho phép đăng ký lại từ đầu
             if (isOtpExpired) {
                 const verifyCode = Math.floor(100000 + Math.random() * 900000).toString();
-                const otpExpires = Date.now() + 600000; // 10 phút nữa hết hạn
+                const otpExpires = Date.now() + Number(process.env.OTP_EXPIRATION) * 60 * 1000; // 2 phút nữa hết hạn
 
                 const salt = await bcryptjs.genSalt(10);
                 const hashPassword = await bcryptjs.hash(password, salt);
@@ -75,13 +91,8 @@ const register = async (req, res) => {
 
                 return res.status(200).json({
                     success: true,
-                    message: 'Đăng ký tài khoản thành công. Vui lòng xác minh email!',
+                    message: 'Đăng ký tài khoản thành công. Vui lòng kiểm tra email!',
                     token,
-                });
-            } else {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Email này đã được đăng ký! Vui lòng xác minh email trước khi đăng ký lại.',
                 });
             }
         }
@@ -107,7 +118,7 @@ const register = async (req, res) => {
             email,
             password: hashPassword,
             otp: verifyCode,
-            otpExpires: Date.now() + 600000, // 10 phút
+            otpExpires: Date.now() + Number(process.env.OTP_EXPIRATION) * 60 * 1000, // 2 phút
         });
         await user.save();
 
@@ -121,7 +132,7 @@ const register = async (req, res) => {
 
         return res.status(200).json({
             success: true,
-            message: 'Đăng ký tài khoản thành công. Vui lòng xác minh email!',
+            message: 'Đăng ký tài khoản thành công. Vui lòng kiểm tra email!',
             token,
         });
     } catch (error) {
@@ -174,7 +185,7 @@ const verifyEmail = async (req, res) => {
         } else {
             return res.status(400).json({
                 success: false,
-                message: 'Mã OTP hết hạn! Vui lòng thử lại sau',
+                message: 'Mã OTP hết hạn! Vui lòng đăng ký lại',
             });
         }
     } catch (error) {
@@ -252,91 +263,6 @@ const login = async (req, res) => {
         });
     }
 };
-// const authWithGoogle = async (req, res) => {
-//     const { name, email, avatar, phoneNumber, role } = req.body;
-//     try {
-//         const existingUser = await UserModel.findOne({ email });
-//         if (!existingUser) {
-//             const user = await UserModel.create({
-//                 name,
-//                 phoneNumber,
-//                 email,
-//                 password: 'null',
-//                 avatar,
-//                 role,
-//                 emailVerified: true,
-//                 signUpWithGoogle: true,
-//             });
-//             await user.save();
-
-//             const accessToken = await generateAccessToken(user._id, user.role);
-//             const refreshToken = await generateRefreshToken(user._id);
-
-//             await UserModel.findByIdAndUpdate(user?._id, {
-//                 lastLoginDate: new Date(),
-//             });
-
-//             const cookiesOptionAccessToken = {
-//                 secure: true, // Dùng HTTPS
-//                 sameSite: 'Strict',
-//                 maxAge: 10 * 60 * 1000, // 10 phút (đổi theo bạn config expiresIn bên JW
-//             };
-//             const cookiesOptionRefreshToken = {
-//                 httpOnly: true,
-//                 secure: true,
-//                 sameSite: 'Strict',
-//                 maxAge: 7 * 24 * 60 * 60 * 1000, // 7 ngày
-//             };
-//             res.cookie('accessToken', accessToken, cookiesOptionAccessToken);
-//             res.cookie('refreshToken', refreshToken, cookiesOptionRefreshToken);
-
-//             return res.status(200).json({
-//                 success: true,
-//                 message: 'Đăng nhập bằng email thành công',
-//                 data: {
-//                     accessToken,
-//                     refreshToken,
-//                 },
-//             });
-//         } else {
-//             const accessToken = await generateAccessToken(existingUser._id, existingUser.role);
-//             const refreshToken = await generateRefreshToken(existingUser._id);
-
-//             await UserModel.findByIdAndUpdate(existingUser?._id, {
-//                 lastLoginDate: new Date(),
-//                 emailVerified: true,
-//             });
-
-//             const cookiesOptionAccessToken = {
-//                 secure: true, // Dùng HTTPS
-//                 sameSite: 'Strict',
-//                 maxAge: 10 * 60 * 1000, // 10 phút (đổi theo bạn config expiresIn bên JW
-//             };
-//             const cookiesOptionRefreshToken = {
-//                 httpOnly: true,
-//                 secure: true,
-//                 sameSite: 'Strict',
-//                 maxAge: 7 * 24 * 60 * 60 * 1000, // 7 ngày
-//             };
-//             res.cookie('accessToken', accessToken, cookiesOptionAccessToken);
-//             res.cookie('refreshToken', refreshToken, cookiesOptionRefreshToken);
-
-//             return res.status(200).json({
-//                 success: true,
-//                 message: 'Đăng nhập bằng email thành công',
-//                 data: {
-//                     accessToken,
-//                     refreshToken,
-//                 },
-//             });
-//         }
-//     } catch (error) {
-//         return res.status(500).json({
-//             message: error.message || error,
-//             success: false,
-//         });
-//     }
-// };
 
 const authWithGoogle = async (req, res) => {
     const { name, email, avatar, phoneNumber, role } = req.body;
@@ -468,95 +394,17 @@ const authWithFacebook = async (req, res) => {
     }
 };
 
-// const authWithFacebook = async (req, res) => {
-//     const { name, email, avatar, phoneNumber, role } = req.body;
-//     try {
-//         const existingUser = await UserModel.findOne({ email });
-//         if (!existingUser) {
-//             const user = await UserModel.create({
-//                 name,
-//                 phoneNumber,
-//                 email,
-//                 password: 'null',
-//                 avatar,
-//                 role,
-//                 emailVerified: true,
-//                 signInWithFacebook: true,
-//             });
-//             await user.save();
-
-//             const accessToken = await generateAccessToken(user._id, user.role);
-//             const refreshToken = await generateRefreshToken(user._id);
-
-//             await UserModel.findByIdAndUpdate(user?._id, {
-//                 lastLoginDate: new Date(),
-//             });
-
-//             const cookiesOptionAccessToken = {
-//                 secure: true, // Dùng HTTPS
-//                 sameSite: 'Strict',
-//                 maxAge: 10 * 60 * 1000, // 10 phút (đổi theo bạn config expiresIn bên JW
-//             };
-//             const cookiesOptionRefreshToken = {
-//                 httpOnly: true,
-//                 secure: true,
-//                 sameSite: 'Strict',
-//                 maxAge: 7 * 24 * 60 * 60 * 1000, // 7 ngày
-//             };
-//             res.cookie('accessToken', accessToken, cookiesOptionAccessToken);
-//             res.cookie('refreshToken', refreshToken, cookiesOptionRefreshToken);
-
-//             return res.status(200).json({
-//                 success: true,
-//                 message: 'Đăng nhập bằng facebook thành công',
-//                 data: {
-//                     accessToken,
-//                     refreshToken,
-//                 },
-//             });
-//         } else {
-//             const accessToken = await generateAccessToken(existingUser._id, existingUser.role);
-//             const refreshToken = await generateRefreshToken(existingUser._id);
-
-//             await UserModel.findByIdAndUpdate(existingUser?._id, {
-//                 lastLoginDate: new Date(),
-//                 emailVerified: true,
-//             });
-
-//             const cookiesOptionAccessToken = {
-//                 secure: true, // Dùng HTTPS
-//                 sameSite: 'Strict',
-//                 maxAge: 10 * 60 * 1000, // 10 phút (đổi theo bạn config expiresIn bên JW
-//             };
-//             const cookiesOptionRefreshToken = {
-//                 httpOnly: true,
-//                 secure: true,
-//                 sameSite: 'Strict',
-//                 maxAge: 7 * 24 * 60 * 60 * 1000, // 7 ngày
-//             };
-//             res.cookie('accessToken', accessToken, cookiesOptionAccessToken);
-//             res.cookie('refreshToken', refreshToken, cookiesOptionRefreshToken);
-
-//             return res.status(200).json({
-//                 success: true,
-//                 message: 'Đăng nhập bằng facebook thành công',
-//                 data: {
-//                     accessToken,
-//                     refreshToken,
-//                 },
-//             });
-//         }
-//     } catch (error) {
-//         return res.status(500).json({
-//             message: error.message || error,
-//             success: false,
-//         });
-//     }
-// };
-
 const logout = async (req, res) => {
     try {
         const userId = req.user._id;
+        const user = await UserModel.findById(userId);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy người dùng',
+            });
+        }
+        const role = user.role;
 
         const cookie = req.cookies;
         if (!cookie || !cookie.refreshToken) throw new Error('Không tìm thấy refresh token trong cookies');
@@ -576,6 +424,8 @@ const logout = async (req, res) => {
             },
             { new: true }
         );
+
+        // await emitUserLogout(userId, role);
 
         return res.status(200).json({
             success: true,

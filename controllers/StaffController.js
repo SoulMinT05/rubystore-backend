@@ -58,7 +58,7 @@ const register = async (req, res) => {
 
                 return res.status(200).json({
                     success: true,
-                    message: 'Đăng ký tài khoản thành công. Vui lòng xác minh email!',
+                    message: 'Đăng ký tài khoản thành công. Vui lòng kiểm tra email!',
                     token,
                 });
             } else {
@@ -105,7 +105,7 @@ const register = async (req, res) => {
 
         return res.status(200).json({
             success: true,
-            message: 'Đăng ký tài khoản thành công. Vui lòng xác minh email!',
+            message: 'Đăng ký tài khoản thành công. Vui lòng kiểm tra email!',
             token,
         });
     } catch (error) {
