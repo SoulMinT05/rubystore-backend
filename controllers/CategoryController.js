@@ -54,7 +54,7 @@ const createCategory = async (req, res) => {
     }
 };
 
-const getCategories = async (req, res) => {
+const getCategoriesFromUser = async (req, res) => {
     try {
         // Kiểm tra cache
         const cacheCategories = await redisClient.get('categories');
@@ -89,6 +89,54 @@ const getCategories = async (req, res) => {
         });
 
         redisClient.setex('categories', process.env.DEFAULT_EXPIRATION, JSON.stringify(rootCategories));
+
+        return res.status(200).json({
+            success: true,
+            categories: rootCategories,
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: error.message || error,
+        });
+    }
+};
+
+const getCategoriesFromAdmin = async (req, res) => {
+    try {
+        // Kiểm tra cache
+        // const cacheCategories = await redisClient.get('categories');
+        // if (cacheCategories) {
+        //     console.log('Lấy categories từ cache');
+        //     return res.status(200).json({
+        //         success: true,
+        //         categories: JSON.parse(cacheCategories),
+        //     });
+        // }
+
+        // Nếu không có cache → Query DB
+        console.log('Lấy categories từ DB');
+        const categories = await CategoryModel.find();
+        const categoryMap = {};
+
+        categories.forEach((category) => {
+            categoryMap[category._id] = {
+                ...category._doc,
+                children: [],
+            };
+        });
+        const rootCategories = [];
+        categories.forEach((category) => {
+            if (category.parentId) {
+                // Nếu có parentId → là danh mục con → push vào children của danh mục cha
+                categoryMap[category.parentId].children.push(categoryMap[category._id]);
+            } else {
+                // Nếu không có parentId → là danh mục gốc (root)
+                rootCategories.push(categoryMap[category._id]);
+            }
+        });
+
+        // redisClient.setex('categories', process.env.DEFAULT_EXPIRATION, JSON.stringify(rootCategories));
 
         return res.status(200).json({
             success: true,
@@ -238,11 +286,50 @@ const deleteCategory = async (req, res) => {
         return res.status(200).json({
             success: true,
             message: 'Xoá danh mục thành công',
+            subCategory,
+            deletedCat,
         });
     } catch (error) {
         return res.status(500).json({
             message: error.message || error,
             success: false,
+        });
+    }
+};
+
+const deleteMultipleCategories = async (req, res) => {
+    try {
+        const { ids } = req.body;
+        if (!ids || !Array.isArray(ids)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Cần cung cấp id danh mục',
+            });
+        }
+
+        const categories = await CategoryModel.find({ _id: { $in: ids } });
+        const destroyImagePromises = categories.flatMap((product) => {
+            const images = product.images || [];
+            return images.map((img) => {
+                const urlArr = img.split('/');
+                const image = urlArr[urlArr.length - 1];
+                const imageName = image.split('.')[0];
+                return cloudinary.uploader.destroy(imageName);
+            });
+        });
+
+        await Promise.all(destroyImagePromises);
+
+        // Xoá tất cả sản phẩm
+        await CategoryModel.deleteMany({ _id: { $in: ids } });
+        return res.status(200).json({
+            success: true,
+            message: 'Xoá danh mục thành công',
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: error,
         });
     }
 };
@@ -297,11 +384,13 @@ const updateCategory = async (req, res) => {
 
 export {
     createCategory,
-    getCategories,
+    getCategoriesFromUser,
+    getCategoriesFromAdmin,
     getCategoriesCount,
     getSubCategoriesCount,
     getDetailsCategory,
     removeImageFromCloudinary,
     deleteCategory,
+    deleteMultipleCategories,
     updateCategory,
 };

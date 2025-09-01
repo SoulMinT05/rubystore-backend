@@ -1664,8 +1664,39 @@ const getReviews = async (req, res) => {
 // USERS
 const getUsersFromAdmin = async (req, res) => {
     try {
-        const users = await UserModel.find().select('-password -refreshToken'); // Lấy thông tin user
-        res.status(200).json({ success: true, users });
+        let { field, value } = req.query;
+
+        let query = {};
+
+        // Nếu search theo ngày tạo thì parse sang Date
+        if (field && value) {
+            value = value.trim();
+            if (field === 'createdAt') {
+                const date = new Date(value);
+                if (!isNaN(date)) {
+                    // tìm trong ngày đó
+                    const nextDay = new Date(date);
+                    nextDay.setDate(date.getDate() + 1);
+                    query[field] = { $gte: date, $lt: nextDay };
+                } else {
+                    return res.status(400).json({ message: 'Giá trị ngày không hợp lệ' });
+                }
+            } else if (field.startsWith('address.')) {
+                query[field] = { $regex: value, $options: 'i' };
+            } else {
+                // search các field text => regex (không phân biệt hoa thường)
+                query[field] = { $regex: value, $options: 'i' };
+            }
+        }
+
+        const users = await UserModel.find(query).select(
+            'name avatar address phoneNumber email createdAt updatedAt isLocked isOnline lastOnline lastLoginDate role status'
+        );
+
+        res.status(200).json({
+            success: true,
+            users,
+        });
     } catch (error) {
         console.error('Lỗi khi lấy danh sách review:', error.message);
         res.status(500).json({ message: 'Lỗi server khi lấy đánh giá.' });
@@ -1879,6 +1910,47 @@ const addUserFromAdmin = async (req, res) => {
     }
 };
 
+const searchUsersFromAdmin = async (req, res) => {
+    try {
+        const { field, value } = req.query;
+        console.log('field, value: ', field, value);
+        if (!field || !value) {
+            return res.status(400).json({ message: 'Cần chọn loại và nhập giá trị tìm kiếm' });
+        }
+
+        let query = {};
+
+        // Nếu search theo ngày tạo thì parse sang Date
+        if (field === 'createdAt') {
+            const date = new Date(value);
+            if (!isNaN(date)) {
+                // tìm trong ngày đó
+                const nextDay = new Date(date);
+                nextDay.setDate(date.getDate() + 1);
+                query[field] = { $gte: date, $lt: nextDay };
+            } else {
+                return res.status(400).json({ message: 'Giá trị ngày không hợp lệ' });
+            }
+        } else {
+            // search các field text => regex (không phân biệt hoa thường)
+            query[field] = { $regex: value, $options: 'i' };
+        }
+
+        console.log('query: ', query);
+
+        const searchUsers = await UserModel.find(query).select(
+            'name avatar address phoneNumber email createdAt updatedAt isLocked isOnline lastOnline lastLoginDate role status'
+        );
+        return res.status(200).json({
+            success: true,
+            searchUsers,
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Lỗi server' });
+    }
+};
+
 export {
     register,
     verifyEmail,
@@ -1926,4 +1998,5 @@ export {
     toggleUserLockStatus,
     updateUserInfoFromAdmin,
     addUserFromAdmin,
+    searchUsersFromAdmin,
 };

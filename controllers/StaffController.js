@@ -970,7 +970,35 @@ const deleteStaffFromAdmin = async (req, res) => {
 
 const getStaffsAndAdmin = async (req, res) => {
     try {
-        const staffs = await StaffModel.find().select('-password -refreshToken'); // Lấy thông tin user
+        let { field, value } = req.query;
+
+        let query = {};
+
+        // Nếu search theo ngày tạo thì parse sang Date
+        if (field && value) {
+            value = value.trim();
+            if (field === 'createdAt') {
+                const date = new Date(value);
+                if (!isNaN(date)) {
+                    // tìm trong ngày đó
+                    const nextDay = new Date(date);
+                    nextDay.setDate(date.getDate() + 1);
+                    query[field] = { $gte: date, $lt: nextDay };
+                } else {
+                    return res.status(400).json({ message: 'Giá trị ngày không hợp lệ' });
+                }
+            } else if (field.startsWith('address.')) {
+                query[field] = { $regex: value, $options: 'i' };
+            } else {
+                // search các field text => regex (không phân biệt hoa thường)
+                query[field] = { $regex: value, $options: 'i' };
+            }
+        }
+
+        const staffs = await StaffModel.find(query).select(
+            'name avatar address phoneNumber email createdAt updatedAt isLocked isOnline lastOnline lastLoginDate role status'
+        );
+
         res.status(200).json({ success: true, staffs });
     } catch (error) {
         console.error('Lỗi khi lấy danh sách review:', error.message);

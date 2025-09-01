@@ -81,6 +81,7 @@ const createProduct = async (req, res) => {
             productSize,
             productWeight,
         });
+
         if (!newProduct) {
             return res.status(400).json({
                 success: false,
@@ -926,26 +927,6 @@ const deleteMultipleProduct = async (req, res) => {
             success: true,
             message: 'Xoá sản phẩm thành công',
         });
-
-        // for (let i = 0; i < ids.length; i++) {
-        //     const product = await ProductModel.findById(ids[i]);
-
-        //     const images = product.images;
-        //     for (const img of images) {
-        //         const imgUrl = img;
-        //         const urlArr = imgUrl.split('/');
-        //         const image = urlArr[urlArr.length - 1];
-        //         const imageName = image.split('.')[0];
-
-        //         if (imageName) {
-        //             await cloudinary.uploader.destroy(imageName);
-        //         }
-        //     }
-
-        //     await ProductModel.deleteMany({
-        //         _id: {$in: ids,},
-        //     });
-        // }
     } catch (error) {
         return res.status(500).json({
             success: false,
