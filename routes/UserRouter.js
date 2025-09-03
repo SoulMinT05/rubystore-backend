@@ -44,6 +44,8 @@ import {
     addReplyToReview,
     deleteReview,
     deleteReplyFromReview,
+    deleteMultipleReviewsFromAdmin,
+    deleteReviewFromAdmin,
 } from '../controllers/UserController.js';
 import { verifyAccessToken } from '../ middlewares/verifyToken.js';
 import upload from '../ middlewares/multer.js';
@@ -96,6 +98,7 @@ userRouter.put('/update-address', verifyAccessToken, updateAddress);
 
 // FOR ADMIN
 userRouter.delete('/deleteUserFromAdmin/:userId', verifyAccessToken, deleteUserFromAdmin);
+userRouter.delete('/deleteReviewFromAdmin/:reviewId', verifyAccessToken, deleteReviewFromAdmin);
 userRouter.get('/userDetailsFromAdmin/:userId', verifyAccessToken, getUserDetailsFromAdmin);
 userRouter.patch('/toggleUserLockStatus/:userId', verifyAccessToken, toggleUserLockStatus);
 userRouter.patch(
@@ -108,5 +111,6 @@ userRouter.patch(
 userRouter.post('/addUserFromAdmin', upload.single('avatar'), verifyAccessToken, addUserFromAdmin);
 userRouter.get('/usersFromAdmin', verifyAccessToken, getUsersFromAdmin);
 userRouter.delete('/deleteMultipleUsersFromAdmin', verifyAccessToken, deleteMultipleUsersFromAdmin);
+userRouter.delete('/deleteMultipleReviewsFromAdmin', verifyAccessToken, deleteMultipleReviewsFromAdmin);
 
 export default userRouter;

@@ -1763,6 +1763,52 @@ const deleteMultipleUsersFromAdmin = async (req, res) => {
     }
 };
 
+const deleteReviewFromAdmin = async (req, res) => {
+    try {
+        const { reviewId } = req.params;
+
+        const review = await ReviewModel.findByIdAndDelete(reviewId);
+        if (!review) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy đánh giá',
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            message: 'Xóa đánh giá thành công',
+            review,
+        });
+    } catch (error) {
+        console.error('Lỗi khi xóa review:', error.message);
+        res.status(500).json({ message: 'Lỗi server khi xóa đánh giá.' });
+    }
+};
+
+const deleteMultipleReviewsFromAdmin = async (req, res) => {
+    try {
+        const { reviewIds } = req.body;
+        if (!Array.isArray(reviewIds) || reviewIds.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Danh sách đánh giá không hợp lệ',
+            });
+        }
+
+        const result = await ReviewModel.deleteMany({ _id: { $in: reviewIds } });
+
+        return res.status(200).json({
+            success: true,
+            message: `Đã xóa ${result.deletedCount} đánh giá`,
+            reviewIds,
+        });
+    } catch (error) {
+        console.error('Lỗi khi xóa nhiều review:', error.message);
+        res.status(500).json({ message: 'Lỗi server khi xóa đánh giá.' });
+    }
+};
+
 const getUserDetailsFromAdmin = async (req, res) => {
     try {
         const { userId } = req.params;
@@ -2015,6 +2061,8 @@ export {
     getUsersFromAdmin,
     deleteUserFromAdmin,
     deleteMultipleUsersFromAdmin,
+    deleteReviewFromAdmin,
+    deleteMultipleReviewsFromAdmin,
     getUserDetailsFromAdmin,
     toggleUserLockStatus,
     updateUserInfoFromAdmin,

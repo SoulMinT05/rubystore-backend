@@ -10,6 +10,7 @@ import {
     getCategoriesFromUser,
     getCategoriesFromAdmin,
     deleteMultipleCategories,
+    getJustCategoriesFromAdmin,
 } from '../controllers/CategoryController.js';
 import { verifyAccessToken } from '../ middlewares/verifyToken.js';
 import upload from '../ middlewares/multer.js';
@@ -23,6 +24,7 @@ categoryRouter.get('/sub-categories/count', getSubCategoriesCount);
 categoryRouter.post('/create', verifyAccessToken, upload.array('images'), createCategory);
 categoryRouter.get('/all-categories', getCategoriesFromUser);
 categoryRouter.get('/all-categories-admin', getCategoriesFromAdmin);
+categoryRouter.get('/just-all-categories-admin', getJustCategoriesFromAdmin);
 categoryRouter.delete('/deleteMultipleCategories', verifyAccessToken, deleteMultipleCategories);
 categoryRouter.delete('/:id', verifyAccessToken, deleteCategory);
 categoryRouter.get('/:id', getDetailsCategory);

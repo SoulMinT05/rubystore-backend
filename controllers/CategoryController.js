@@ -102,80 +102,80 @@ const getCategoriesFromUser = async (req, res) => {
     }
 };
 
-// const getCategoriesFromAdmin = async (req, res) => {
-//     try {
-//         let { field, value } = req.query;
-//         const filter = {
-//             parentId: null,
-//         };
+const getJustCategoriesFromAdmin = async (req, res) => {
+    try {
+        let { field, value } = req.query;
+        const filter = {
+            parentId: null,
+        };
 
-//         if (field && value) {
-//             if (typeof value === 'string') {
-//                 value = value.trim();
-//             }
+        if (field && value) {
+            if (typeof value === 'string') {
+                value = value.trim();
+            }
 
-//             if (field === 'createdAt') {
-//                 // lọc theo ngày tạo
-//                 const date = new Date(value);
-//                 if (!isNaN(date)) {
-//                     const nextDay = new Date(date);
-//                     nextDay.setDate(date.getDate() + 1);
-//                     filter[field] = { $gte: date, $lt: nextDay };
-//                 } else {
-//                     return res.status(400).json({ message: 'Giá trị ngày không hợp lệ' });
-//                 }
-//             } else {
-//                 filter[field] = { $regex: value, $options: 'i' };
-//             }
-//         }
+            if (field === 'createdAt') {
+                // lọc theo ngày tạo
+                const date = new Date(value);
+                if (!isNaN(date)) {
+                    const nextDay = new Date(date);
+                    nextDay.setDate(date.getDate() + 1);
+                    filter[field] = { $gte: date, $lt: nextDay };
+                } else {
+                    return res.status(400).json({ message: 'Giá trị ngày không hợp lệ' });
+                }
+            } else {
+                filter[field] = { $regex: value, $options: 'i' };
+            }
+        }
 
-//         // phân trang
-//         const page = parseInt(req.query.page) || 1;
-//         const perPage = parseInt(req.query.perPage) || process.env.LIMIT_DEFAULT;
-//         const skip = (page - 1) * perPage;
+        // phân trang
+        const page = parseInt(req.query.page) || 1;
+        const perPage = parseInt(req.query.perPage) || process.env.LIMIT_DEFAULT;
+        const skip = (page - 1) * perPage;
 
-//         const [categories, totalCategories] = await Promise.all([
-//             CategoryModel.find(filter).sort({ createdAt: -1 }).skip(skip).limit(perPage),
-//             CategoryModel.countDocuments(filter),
-//         ]);
+        const [categories, totalCategories] = await Promise.all([
+            CategoryModel.find(filter).skip(skip).limit(perPage),
+            CategoryModel.countDocuments(filter),
+        ]);
 
-//         // // const categories = await CategoryModel.find();
-//         // const categoryMap = {};
-//         // categories.forEach((category) => {
-//         //     categoryMap[category._id] = {
-//         //         ...category._doc,
-//         //         children: [],
-//         //     };
-//         // });
+        // // const categories = await CategoryModel.find();
+        // const categoryMap = {};
+        // categories.forEach((category) => {
+        //     categoryMap[category._id] = {
+        //         ...category._doc,
+        //         children: [],
+        //     };
+        // });
 
-//         // const rootCategories = [];
-//         // categories.forEach((category) => {
-//         //     // if (category.parentId) {
-//         //     if (category.parentId && categoryMap[category.parentId]) {
-//         //         // Nếu có parentId → là danh mục con → push vào children của danh mục cha
-//         //         categoryMap[category.parentId].children.push(categoryMap[category._id]);
-//         //     } else {
-//         //         // Nếu không có parentId → là danh mục gốc (root)
-//         //         rootCategories.push(categoryMap[category._id]);
-//         //     }
-//         // });
+        // const rootCategories = [];
+        // categories.forEach((category) => {
+        //     // if (category.parentId) {
+        //     if (category.parentId && categoryMap[category.parentId]) {
+        //         // Nếu có parentId → là danh mục con → push vào children của danh mục cha
+        //         categoryMap[category.parentId].children.push(categoryMap[category._id]);
+        //     } else {
+        //         // Nếu không có parentId → là danh mục gốc (root)
+        //         rootCategories.push(categoryMap[category._id]);
+        //     }
+        // });
 
-//         return res.status(200).json({
-//             success: true,
-//             // categories: rootCategories,
-//             categories,
-//             totalPages: Math.ceil(totalCategories / perPage),
-//             totalCategories,
-//             page,
-//             perPage,
-//         });
-//     } catch (error) {
-//         return res.status(500).json({
-//             success: false,
-//             message: error.message || error,
-//         });
-//     }
-// };
+        return res.status(200).json({
+            success: true,
+            // categories: rootCategories,
+            categories,
+            totalPages: Math.ceil(totalCategories / perPage),
+            totalCategories,
+            page,
+            perPage,
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: error.message || error,
+        });
+    }
+};
 
 const getCategoriesFromAdmin = async (req, res) => {
     try {
@@ -446,6 +446,7 @@ const updateCategory = async (req, res) => {
 export {
     createCategory,
     getCategoriesFromUser,
+    getJustCategoriesFromAdmin,
     getCategoriesFromAdmin,
     getCategoriesCount,
     getSubCategoriesCount,
