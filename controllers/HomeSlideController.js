@@ -1,6 +1,7 @@
 import HomeSlideModel from '../models/HomeSlideModel.js';
 
 import { v2 as cloudinary } from 'cloudinary';
+import StaffModel from '../models/StaffModel.js';
 
 cloudinary.config({
     cloud_name: process.env.CLOUDINARY_NAME,
@@ -39,7 +40,7 @@ const createHomeSlideImage = async (req, res) => {
     }
 };
 
-const getAllHomeSlides = async (req, res) => {
+const getAllHomeSlidesFromUser = async (req, res) => {
     try {
         const homeSlides = await HomeSlideModel.find().sort({ order: 1 }); // sắp xếp theo thứ tự
         res.status(200).json({ success: true, homeSlides });
@@ -47,7 +48,67 @@ const getAllHomeSlides = async (req, res) => {
         res.status(500).json({ success: false, message: error.message });
     }
 };
-const getHomeSlide = async (req, res) => {
+const getAllHomeSlidesFromAdmin = async (req, res) => {
+    try {
+        const userId = req.user._id;
+        console.log('useRID: ', userId);
+        const user = await StaffModel.findById(userId);
+
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy người dùng',
+            });
+        }
+        let { field, value } = req.query;
+        const filter = {};
+
+        console.log('field, value: ', field, value);
+
+        if (field && value) {
+            if (typeof value === 'string') {
+                value = value.trim();
+            }
+
+            if (field === 'createdAt') {
+                // lọc theo ngày tạo
+                const date = new Date(value);
+                if (!isNaN(date)) {
+                    const nextDay = new Date(date);
+                    nextDay.setDate(date.getDate() + 1);
+                    filter[field] = { $gte: date, $lt: nextDay };
+                } else {
+                    return res.status(400).json({ message: 'Giá trị ngày không hợp lệ' });
+                }
+            } else {
+                filter[field] = { $regex: value, $options: 'i' };
+            }
+        }
+
+        // phân trang
+        const page = parseInt(req.query.page) || 1;
+        const perPage = parseInt(req.query.perPage) || process.env.LIMIT_DEFAULT;
+        const skip = (page - 1) * perPage;
+
+        const [homeSlides, totalHomeSlides] = await Promise.all([
+            HomeSlideModel.find(filter).sort({ createdAt: -1 }).skip(skip).limit(perPage),
+            HomeSlideModel.countDocuments(filter),
+        ]);
+
+        // const homeSlides = await HomeSlideModel.find().sort({ order: 1 }); // sắp xếp theo thứ tự
+        res.status(200).json({
+            success: true,
+            homeSlides,
+            totalPages: Math.ceil(totalHomeSlides / perPage),
+            totalHomeSlides,
+            page,
+            perPage,
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+const getDetailsHomeSlide = async (req, res) => {
     try {
         const homeSlide = await HomeSlideModel.findById(req.params.id);
         if (!homeSlide) {
@@ -150,8 +211,9 @@ const deleteMultipleHomeSlide = async (req, res) => {
 
 export {
     createHomeSlideImage,
-    getHomeSlide,
-    getAllHomeSlides,
+    getDetailsHomeSlide,
+    getAllHomeSlidesFromUser,
+    getAllHomeSlidesFromAdmin,
     updateHomeSlide,
     deleteHomeSlide,
     deleteMultipleHomeSlide,

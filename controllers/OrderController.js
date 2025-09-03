@@ -1,3 +1,5 @@
+import mongoose from 'mongoose';
+
 import UserModel from '../models/UserModel.js';
 import StaffModel from '../models/StaffModel.js';
 import ProductModel from '../models/ProductModel.js';
@@ -390,10 +392,74 @@ const getAllOrdersFromAdmin = async (req, res) => {
                 message: 'Không tìm thấy người dùng',
             });
         }
-        const orders = await OrderModel.find().populate('userId').sort({ createdAt: -1 });
-        return res.status(200).json({
+
+        // Lọc theo tất cả hoặc orderStatus
+        const { orderStatus } = req.query;
+        const filter = {};
+        if (orderStatus) {
+            filter.orderStatus = orderStatus;
+        }
+
+        let { field, value } = req.query;
+
+        let query = {};
+
+        // Nếu search theo ngày tạo thì parse sang Date
+        if (field && value) {
+            if (typeof value === 'string') {
+                value = value.trim();
+            }
+            if (field === 'createdAt') {
+                const date = new Date(value);
+                if (!isNaN(date)) {
+                    // tìm trong ngày đó
+                    const nextDay = new Date(date);
+                    nextDay.setDate(date.getDate() + 1);
+                    query[field] = { $gte: date, $lt: nextDay };
+                } else {
+                    return res.status(400).json({ message: 'Giá trị ngày không hợp lệ' });
+                }
+            } else if (['name', 'email', 'phoneNumber'].includes(field)) {
+                const users = await UserModel.find({
+                    [field]: { $regex: value, $options: 'i' },
+                }).select('_id');
+
+                filter.userId = { $in: users.map((u) => u._id) };
+            } else if (field === 'paymentMethod' || field === 'orderStatus') {
+                filter[field] = value;
+            } else if (field === 'totalPrice') {
+                if (value === '<200') {
+                    filter[field] = { $lt: 200000 };
+                } else if (value === '200-500') {
+                    filter[field] = { $gte: 200000, $lte: 500000 };
+                } else if (value === '500-1000') {
+                    filter[field] = { $gte: 500000, $lte: 1000000 };
+                } else if (value === '1000-5000') {
+                    filter[field] = { $gte: 1000000, $lte: 5000000 };
+                } else if (value === '>5000') {
+                    filter[field] = { $gt: 5000000 };
+                }
+            } else {
+                filter[field] = { $regex: value, $options: 'i' };
+            }
+        }
+
+        const page = parseInt(req.query.page) || 1;
+        const perPage = parseInt(req.query.perPage) || process.env.LIMIT_DEFAULT;
+        const skip = (page - 1) * perPage;
+
+        const [orders, totalOrders] = await Promise.all([
+            OrderModel.find(filter).populate('userId').sort({ createdAt: -1 }).skip(skip).limit(perPage),
+            OrderModel.countDocuments(filter),
+        ]);
+
+        res.json({
             success: true,
             orders,
+            totalPages: Math.ceil(totalOrders / perPage),
+            totalOrders,
+            page,
+            perPage,
         });
     } catch (error) {
         console.error('getAllOrders error:', error);

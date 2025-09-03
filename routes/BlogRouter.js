@@ -6,9 +6,10 @@ import {
     createBlog,
     deleteMultipleBlog,
     deleteBlog,
-    getBlogs,
+    getBlogsFromUser,
     updateBlog,
     getDetailsBlog,
+    getBlogsFromAdmin,
 } from '../controllers/BlogController.js';
 
 const blogRouter = Router();
@@ -16,7 +17,8 @@ const blogRouter = Router();
 blogRouter.delete('/deleteMultipleBlog', verifyAccessToken, deleteMultipleBlog);
 
 blogRouter.post('/create', verifyAccessToken, upload.array('images'), createBlog);
-blogRouter.get('/all-blogs', getBlogs);
+blogRouter.get('/all-blogs', getBlogsFromUser);
+blogRouter.get('/all-blogs-admin', [verifyAccessToken], getBlogsFromAdmin);
 
 blogRouter.put('/:id', verifyAccessToken, upload.array('images'), updateBlog);
 blogRouter.delete('/:id', verifyAccessToken, deleteBlog);

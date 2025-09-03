@@ -39,6 +39,7 @@ import {
     searchProductResults,
     saveSearchHistory,
     getSearchProductsHistory,
+    getDetailsProductFromAdmin,
 } from '../controllers/ProductController.js';
 import { verifyAccessToken } from '../ middlewares/verifyToken.js';
 import upload from '../ middlewares/multer.js';
@@ -90,8 +91,9 @@ productRouter.get('/search-product-history', verifyAccessToken, getSearchProduct
 productRouter.post('/save-search-history', verifyAccessToken, saveSearchHistory);
 
 productRouter.delete('/deleteMultipleProduct', verifyAccessToken, deleteMultipleProduct);
-productRouter.delete('/:id', verifyAccessToken, deleteProduct);
+productRouter.get('/getDetailsProductFromAdmin/:id', getDetailsProductFromAdmin);
 productRouter.get('/:id', getDetailsProductFromUser);
+productRouter.delete('/:id', verifyAccessToken, deleteProduct);
 productRouter.put('/:id', verifyAccessToken, upload.array('images'), updateProduct);
 
 export default productRouter;

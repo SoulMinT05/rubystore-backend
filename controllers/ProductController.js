@@ -234,37 +234,101 @@ const createProductSize = async (req, res) => {
 
 const getProductsAdmin = async (req, res) => {
     try {
+        let { field, value } = req.query;
+        const filter = {};
+
+        console.log('field, value: ', field, value);
+
+        if (field && value) {
+            if (typeof value === 'string') {
+                value = value.trim();
+            }
+
+            if (field === 'createdAt') {
+                // lọc theo ngày tạo
+                const date = new Date(value);
+                if (!isNaN(date)) {
+                    const nextDay = new Date(date);
+                    nextDay.setDate(date.getDate() + 1);
+                    filter[field] = { $gte: date, $lt: nextDay };
+                } else {
+                    return res.status(400).json({ message: 'Giá trị ngày không hợp lệ' });
+                }
+            } else if (
+                field === 'categoryId' ||
+                field === 'subCategoryId' ||
+                field === 'thirdSubCategoryId' ||
+                field === 'rating'
+            ) {
+                filter[field] = value;
+            } else if (field === 'isFeatured') {
+                if (value === 'true') filter[field] = true;
+                else if (value === 'false') filter[field] = false;
+            } else if (field === 'price') {
+                // lọc theo khoảng giá
+                if (value === '<200') {
+                    filter[field] = { $lt: 200000 };
+                } else if (value === '200-500') {
+                    filter[field] = { $gte: 200000, $lte: 500000 };
+                } else if (value === '500-1000') {
+                    filter[field] = { $gte: 500000, $lte: 1000000 };
+                } else if (value === '1000-5000') {
+                    filter[field] = { $gte: 1000000, $lte: 5000000 };
+                } else if (value === '>5000') {
+                    filter[field] = { $gt: 5000000 };
+                }
+            } else if (field === 'countInStock') {
+                // lọc theo khoảng giá
+                if (value === '0') {
+                    filter[field] = 0;
+                } else if (value === '1-100') {
+                    filter[field] = { $gte: 1, $lte: 100 };
+                } else if (value === '100-500') {
+                    filter[field] = { $gte: 100, $lte: 500 };
+                } else if (value === '500-1000') {
+                    filter[field] = { $gte: 500, $lte: 1000 };
+                } else if (value === '>1000') {
+                    filter[field] = { $gt: 1000 };
+                }
+            } else if (field === 'discount') {
+                // lọc theo khoảng giá
+                if (value === '<2%') {
+                    filter[field] = { $lt: 2 };
+                } else if (value === '2%-5%') {
+                    filter[field] = { $gte: 2, $lte: 5 };
+                } else if (value === '5%-10%') {
+                    filter[field] = { $gte: 5, $lte: 10 };
+                } else if (value === '10%-20%') {
+                    filter[field] = { $gte: 10, $lte: 20 };
+                } else if (value === '>20%') {
+                    filter[field] = { $gt: 20 };
+                }
+            } else {
+                // name, description,... => regex tìm kiếm
+                filter[field] = { $regex: value, $options: 'i' };
+            }
+        }
+
+        // phân trang
         const page = parseInt(req.query.page) || 1;
-        const perPage = parseInt(req.query.perPage);
-        const totalProducts = await ProductModel.countDocuments();
-        const totalPages = Math.ceil(totalProducts / perPage);
+        const perPage = parseInt(req.query.perPage) || process.env.LIMIT_DEFAULT;
+        const skip = (page - 1) * perPage;
 
-        if (page > totalPages) {
-            return res.status(404).json({
-                success: false,
-                message: 'Trang không tìm thấy',
-            });
-        }
+        const [products, totalProducts] = await Promise.all([
+            ProductModel.find(filter).populate('category').skip(skip).limit(perPage),
+            ProductModel.countDocuments(filter),
+        ]);
 
-        const products = await ProductModel.find()
-            .populate('category')
-            .skip((page - 1) * perPage)
-            .limit(perPage)
-            .exec();
-
-        if (!products) {
-            return res.status(500).json({
-                success: false,
-                message: 'Không tìm thấy sản phẩm',
-            });
-        }
-        return res.status(200).json({
+        res.status(200).json({
             success: true,
             products,
-            totalPages,
+            totalPages: Math.ceil(totalProducts / perPage),
+            totalProducts,
             page,
+            perPage,
         });
     } catch (error) {
+        console.error('getProductsAdmin error:', error);
         return res.status(500).json({
             success: false,
             message: error.message || error,
@@ -1085,6 +1149,40 @@ const deleteMultipleProductSize = async (req, res) => {
     }
 };
 
+const getDetailsProductFromAdmin = async (req, res) => {
+    try {
+        const productId = req.params.id;
+
+        // Query DB
+        console.log('Lấy details product từ DB');
+        const product = await ProductModel.findById(productId)
+            .populate('category')
+            .populate({
+                path: 'review', // field trong ProductModel
+                populate: {
+                    path: 'userId', // field trong Review model
+                    select: 'name email avatar', // chỉ lấy các field cần thiết
+                },
+            });
+        if (!product) {
+            return res.status(400).json({
+                success: false,
+                message: 'Không tìm thấy sản phẩm với id này',
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            product,
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: error.message || error,
+        });
+    }
+};
+
 const getDetailsProductFromUser = async (req, res) => {
     try {
         const productId = req.params.id;
@@ -1676,6 +1774,7 @@ export {
     deleteMultipleProductWeight,
     deleteProductSize,
     deleteMultipleProductSize,
+    getDetailsProductFromAdmin,
     getDetailsProductFromUser,
     removeImageFromCloudinary,
     updateProduct,

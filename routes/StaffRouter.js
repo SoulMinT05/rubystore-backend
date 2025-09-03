@@ -23,7 +23,7 @@ import {
     getStaffOrAdminDetails,
     deleteMultipleStaffsFromAdmin,
     deleteStaffFromAdmin,
-    getStaffsAndAdmin,
+    getStaffsFromAdmin,
 } from '../controllers/StaffController.js';
 import { verifyAccessToken, checkIsAdmin, checkAdminOrStaff } from '../ middlewares/verifyToken.js';
 import upload from '../ middlewares/multer.js';
@@ -66,6 +66,6 @@ staffRouter.delete('/deleteStaffFromAdmin/:staffId', [verifyAccessToken, checkIs
 
 staffRouter.post('/addStaffFromAdmin', upload.single('avatar'), [verifyAccessToken, checkIsAdmin], addStaffFromAdmin);
 staffRouter.delete('/deleteMultipleStaffsFromAdmin', [verifyAccessToken, checkIsAdmin], deleteMultipleStaffsFromAdmin);
-staffRouter.get('/getStaffsAndAdmin', [verifyAccessToken, checkAdminOrStaff], getStaffsAndAdmin);
+staffRouter.get('/getStaffsFromAdmin', [verifyAccessToken, checkAdminOrStaff], getStaffsFromAdmin);
 
 export default staffRouter;

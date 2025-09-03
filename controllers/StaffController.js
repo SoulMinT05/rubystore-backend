@@ -968,41 +968,104 @@ const deleteStaffFromAdmin = async (req, res) => {
     }
 };
 
-const getStaffsAndAdmin = async (req, res) => {
+// const getStaffsFromAdmin = async (req, res) => {
+//     try {
+//         let { field, value } = req.query;
+
+//         let query = {};
+
+//         // Nếu search theo ngày tạo thì parse sang Date
+//         if (field && value) {
+//             value = value.trim();
+//             if (field === 'createdAt') {
+//                 const date = new Date(value);
+//                 if (!isNaN(date)) {
+//                     // tìm trong ngày đó
+//                     const nextDay = new Date(date);
+//                     nextDay.setDate(date.getDate() + 1);
+//                     query[field] = { $gte: date, $lt: nextDay };
+//                 } else {
+//                     return res.status(400).json({ message: 'Giá trị ngày không hợp lệ' });
+//                 }
+//             } else if (field.startsWith('address.')) {
+//                 query[field] = { $regex: value, $options: 'i' };
+//             } else {
+//                 // search các field text => regex (không phân biệt hoa thường)
+//                 query[field] = { $regex: value, $options: 'i' };
+//             }
+//         }
+
+//         const staffs = await StaffModel.find(query).select(
+//             'name avatar address phoneNumber email createdAt updatedAt isLocked isOnline lastOnline lastLoginDate role status'
+//         );
+
+//         res.status(200).json({ success: true, staffs });
+//     } catch (error) {
+//         console.error('Lỗi khi lấy danh sách review:', error.message);
+//         res.status(500).json({ message: 'Lỗi server khi lấy đánh giá.' });
+//     }
+// };
+
+const getStaffsFromAdmin = async (req, res) => {
     try {
         let { field, value } = req.query;
+        const filter = {};
 
-        let query = {};
+        console.log('field && value: ', field && value);
 
-        // Nếu search theo ngày tạo thì parse sang Date
         if (field && value) {
-            value = value.trim();
+            if (typeof value === 'string') {
+                value = value.trim();
+            }
+
             if (field === 'createdAt') {
+                // lọc theo ngày tạo
                 const date = new Date(value);
                 if (!isNaN(date)) {
-                    // tìm trong ngày đó
                     const nextDay = new Date(date);
                     nextDay.setDate(date.getDate() + 1);
-                    query[field] = { $gte: date, $lt: nextDay };
+                    filter[field] = { $gte: date, $lt: nextDay };
                 } else {
                     return res.status(400).json({ message: 'Giá trị ngày không hợp lệ' });
                 }
+            } else if (field === 'isLocked' || field === 'isOnline' || field === 'status' || field === 'role') {
+                // lọc chính xác theo boolean/string
+                filter[field] = value;
             } else if (field.startsWith('address.')) {
-                query[field] = { $regex: value, $options: 'i' };
+                // tìm trong address.* => regex
+                filter[field] = { $regex: value, $options: 'i' };
             } else {
-                // search các field text => regex (không phân biệt hoa thường)
-                query[field] = { $regex: value, $options: 'i' };
+                // name, email, phoneNumber,... => regex
+                filter[field] = { $regex: value, $options: 'i' };
             }
         }
 
-        const staffs = await StaffModel.find(query).select(
-            'name avatar address phoneNumber email createdAt updatedAt isLocked isOnline lastOnline lastLoginDate role status'
-        );
+        // phân trang
+        const page = parseInt(req.query.page) || 1;
+        const perPage = parseInt(req.query.perPage) || process.env.LIMIT_DEFAULT;
+        const skip = (page - 1) * perPage;
 
-        res.status(200).json({ success: true, staffs });
+        const [staffs, totalStaffs] = await Promise.all([
+            StaffModel.find(filter)
+                .select(
+                    'name avatar address phoneNumber email createdAt updatedAt isLocked isOnline lastOnline lastLoginDate role status'
+                )
+                .skip(skip)
+                .limit(perPage),
+            StaffModel.countDocuments(filter),
+        ]);
+
+        res.status(200).json({
+            success: true,
+            staffs,
+            totalPages: Math.ceil(totalStaffs / perPage),
+            totalStaffs,
+            page,
+            perPage,
+        });
     } catch (error) {
-        console.error('Lỗi khi lấy danh sách review:', error.message);
-        res.status(500).json({ message: 'Lỗi server khi lấy đánh giá.' });
+        console.error('getUsersFromAdmin error:', error);
+        return res.status(500).json({ success: false, message: 'Lỗi máy chủ' });
     }
 };
 
@@ -1031,5 +1094,5 @@ export {
     getStaffOrAdminDetails,
     deleteMultipleStaffsFromAdmin,
     deleteStaffFromAdmin,
-    getStaffsAndAdmin,
+    getStaffsFromAdmin,
 };

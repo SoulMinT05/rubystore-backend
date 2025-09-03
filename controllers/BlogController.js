@@ -1,6 +1,7 @@
 import BlogModel from '../models/BlogModel.js';
 
 import { v2 as cloudinary } from 'cloudinary';
+import StaffModel from '../models/StaffModel.js';
 
 cloudinary.config({
     cloud_name: process.env.CLOUDINARY_NAME,
@@ -51,7 +52,7 @@ const createBlog = async (req, res) => {
     }
 };
 
-const getBlogs = async (req, res) => {
+const getBlogsFromUser = async (req, res) => {
     try {
         const { excludeId } = req.query;
 
@@ -62,6 +63,69 @@ const getBlogs = async (req, res) => {
         return res.status(200).json({
             success: true,
             blogs,
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: error.message || error,
+        });
+    }
+};
+
+const getBlogsFromAdmin = async (req, res) => {
+    try {
+        const userId = req.user._id;
+        const user = await StaffModel.findById(userId);
+
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy người dùng',
+            });
+        }
+
+        let { field, value } = req.query;
+        const filter = {};
+
+        console.log('field, value: ', field, value);
+
+        if (field && value) {
+            if (typeof value === 'string') {
+                value = value.trim();
+            }
+
+            if (field === 'createdAt') {
+                // lọc theo ngày tạo
+                const date = new Date(value);
+                if (!isNaN(date)) {
+                    const nextDay = new Date(date);
+                    nextDay.setDate(date.getDate() + 1);
+                    filter[field] = { $gte: date, $lt: nextDay };
+                } else {
+                    return res.status(400).json({ message: 'Giá trị ngày không hợp lệ' });
+                }
+            } else {
+                filter[field] = { $regex: value, $options: 'i' };
+            }
+        }
+
+        // phân trang
+        const page = parseInt(req.query.page) || 1;
+        const perPage = parseInt(req.query.perPage) || process.env.LIMIT_DEFAULT;
+        const skip = (page - 1) * perPage;
+
+        const [blogs, totalBlogs] = await Promise.all([
+            BlogModel.find(filter).sort({ createdAt: -1 }).skip(skip).limit(perPage),
+            BlogModel.countDocuments(filter),
+        ]);
+
+        return res.status(200).json({
+            success: true,
+            blogs,
+            totalPages: Math.ceil(totalBlogs / perPage),
+            totalBlogs,
+            page,
+            perPage,
         });
     } catch (error) {
         return res.status(500).json({
@@ -221,4 +285,13 @@ const updateBlog = async (req, res) => {
     }
 };
 
-export { createBlog, getBlogs, getDetailsBlog, removeImageFromCloudinary, deleteBlog, deleteMultipleBlog, updateBlog };
+export {
+    createBlog,
+    getBlogsFromUser,
+    getBlogsFromAdmin,
+    getDetailsBlog,
+    removeImageFromCloudinary,
+    deleteBlog,
+    deleteMultipleBlog,
+    updateBlog,
+};
