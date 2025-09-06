@@ -1,7 +1,8 @@
-import BlogModel from '../models/BlogModel.js';
-
 import { v2 as cloudinary } from 'cloudinary';
+
+import BlogModel from '../models/BlogModel.js';
 import StaffModel from '../models/StaffModel.js';
+import slugify from 'slugify';
 
 cloudinary.config({
     cloud_name: process.env.CLOUDINARY_NAME,
@@ -22,6 +23,21 @@ const createBlog = async (req, res) => {
             });
         }
 
+        const slug = slugify(name, {
+            lower: true,
+            strict: true,
+            locale: 'vi',
+        });
+
+        const existingSlug = await BlogModel.findOne({ slug });
+        if (existingSlug) {
+            return res.status(400).json({
+                success: false,
+                message: 'Tên bài viết đã tồn tại',
+            });
+        }
+
+        // Images
         let imageUrls = [];
         if (images && images.length > 0) {
             imageUrls = await Promise.all(
@@ -34,6 +50,7 @@ const createBlog = async (req, res) => {
 
         const newBlog = await BlogModel.create({
             name,
+            slug,
             description: description || '',
             images: imageUrls,
         });
@@ -48,6 +65,80 @@ const createBlog = async (req, res) => {
         return res.status(500).json({
             success: false,
             message: error.message || error,
+        });
+    }
+};
+
+const updateBlog = async (req, res) => {
+    try {
+        const blog = await BlogModel.findById(req.params.id);
+        if (!blog) {
+            return res.status(400).json({
+                success: false,
+                message: 'Không tìm thấy bài viết',
+            });
+        }
+
+        const { name, description } = req.body;
+
+        let slug = undefined;
+        if (name) {
+            slug = slugify(name, {
+                lower: true,
+                strict: true,
+                locale: 'vi',
+            });
+            // Kiểm tra trùng slug nhưng loại trừ bài viết hiện tại
+            // Nếu update bài viết giữ nguyên name → slug giữ nguyên, không báo lỗi.
+            // Nếu đổi sang name mới mà trùng với bài viết khác → báo "Tên bài viết đã tồn tại".
+            // Nếu đổi sang name mới khác → generate slug mới và update DB.
+            const existingSlug = await BlogModel.findOne({
+                slug,
+                _id: {
+                    $ne: req.params.id,
+                },
+            });
+            if (existingSlug) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Tên bài viết đã tồn tại',
+                });
+            }
+        }
+
+        // Images
+        const deletedImages = req.body.deletedImages || []; // array các URL cần xoá
+        if (deletedImages.length > 0) {
+            blog.images = blog.images.filter((img) => !deletedImages.includes(img));
+        }
+
+        // --- Thêm ảnh mới nếu có ---
+        const newImages = req.files?.map((file) => file.path) || [];
+        if (newImages.length > 0) {
+            // Sử dụng Promise.all để xử lý nhiều ảnh cùng một lúc
+            await Promise.all(
+                newImages.map((image) => {
+                    return blog.images.push(image); // Đẩy ảnh vào mảng images
+                })
+            );
+        }
+
+        // --- Cập nhật tên và bài viết cha ---
+        blog.name = name || blog.name;
+        if (slug) blog.slug = slug;
+        blog.description = description || null;
+
+        await blog.save();
+
+        return res.status(200).json({
+            success: true,
+            message: 'Cập nhật bài viết thành công',
+            updatedBlog: blog,
+        });
+    } catch (error) {
+        return res.status(500).json({
+            message: error.message || error,
+            success: false,
         });
     }
 };
@@ -234,53 +325,6 @@ const deleteMultipleBlog = async (req, res) => {
         return res.status(500).json({
             success: false,
             message: error,
-        });
-    }
-};
-
-const updateBlog = async (req, res) => {
-    try {
-        const blog = await BlogModel.findById(req.params.id);
-        if (!blog) {
-            return res.status(400).json({
-                success: false,
-                message: 'Không tìm thấy bài viết',
-            });
-        }
-
-        const deletedImages = req.body.deletedImages || []; // array các URL cần xoá
-
-        if (deletedImages.length > 0) {
-            blog.images = blog.images.filter((img) => !deletedImages.includes(img));
-        }
-
-        // --- Thêm ảnh mới nếu có ---
-        const newImages = req.files?.map((file) => file.path) || [];
-
-        if (newImages.length > 0) {
-            // Sử dụng Promise.all để xử lý nhiều ảnh cùng một lúc
-            await Promise.all(
-                newImages.map((image) => {
-                    return blog.images.push(image); // Đẩy ảnh vào mảng images
-                })
-            );
-        }
-
-        // --- Cập nhật tên và bài viết cha ---
-        blog.name = req.body.name || blog.name;
-        blog.description = req.body.description || null;
-
-        await blog.save();
-
-        return res.status(200).json({
-            success: true,
-            message: 'Cập nhật bài viết thành công',
-            updatedBlog: blog,
-        });
-    } catch (error) {
-        return res.status(500).json({
-            message: error.message || error,
-            success: false,
         });
     }
 };

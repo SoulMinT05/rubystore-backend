@@ -7,6 +7,9 @@ const categorySchema = mongoose.Schema(
             // required: true,
             trim: true,
         },
+        slug: {
+            type: String,
+        },
         images: [
             {
                 type: String,
@@ -23,7 +26,7 @@ const categorySchema = mongoose.Schema(
     },
     {
         timestamps: true,
-    },
+    }
 );
 
 const CategoryModel = mongoose.model('category', categorySchema);

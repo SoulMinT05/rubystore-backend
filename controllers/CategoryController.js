@@ -1,7 +1,8 @@
+import { v2 as cloudinary } from 'cloudinary';
+import slugify from 'slugify';
+
 import redisClient from '../config/redis.js';
 import CategoryModel from '../models/CategoryModel.js';
-
-import { v2 as cloudinary } from 'cloudinary';
 
 cloudinary.config({
     cloud_name: process.env.CLOUDINARY_NAME,
@@ -22,6 +23,24 @@ const createCategory = async (req, res) => {
             });
         }
 
+        const slug = slugify(name, {
+            lower: true,
+            strict: true,
+            locale: 'vi',
+        });
+
+        const existingSlug = await CategoryModel.findOne({
+            slug,
+            parentId: parentId ? parentId : null,
+        });
+        if (existingSlug) {
+            return res.status(400).json({
+                success: false,
+                message: 'Tên danh mục đã tồn tại',
+            });
+        }
+
+        // Images
         let imageUrls = [];
 
         if (images && images.length > 0) {
@@ -35,6 +54,7 @@ const createCategory = async (req, res) => {
 
         const newCategory = await CategoryModel.create({
             name,
+            slug,
             parentCategoryName: parentCategoryName || '',
             parentId: parentId || null,
             images: imageUrls,
@@ -50,6 +70,83 @@ const createCategory = async (req, res) => {
         return res.status(500).json({
             success: false,
             message: error.message || error,
+        });
+    }
+};
+
+const updateCategory = async (req, res) => {
+    try {
+        const category = await CategoryModel.findById(req.params.id);
+        if (!category) {
+            return res.status(400).json({
+                success: false,
+                message: 'Không tìm thấy danh mục',
+            });
+        }
+
+        const { name, parentId, parentCategoryName } = req.body;
+
+        let slug = undefined;
+        if (name) {
+            slug = slugify(name, {
+                lower: true,
+                strict: true,
+                locale: 'vi',
+            });
+            // Kiểm tra trùng slug nhưng loại trừ danh mục hiện tại
+            // Nếu update danh mục giữ nguyên name → slug giữ nguyên, không báo lỗi.
+            // Nếu đổi sang name mới mà trùng với danh mục khác → báo "Tên danh mục đã tồn tại".
+            // Nếu đổi sang name mới khác → generate slug mới và update DB.
+            const existingSlug = await CategoryModel.findOne({
+                slug,
+                _id: {
+                    $ne: req.params.id,
+                },
+                parentId: parentId || null, //chỉ so sánh trong cùng cha, nếu khác cha vẫn dc trùng slug
+            });
+            if (existingSlug) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Tên danh mục đã tồn tại',
+                });
+            }
+        }
+        // Images
+        const deletedImages = req.body.deletedImages || []; // array các URL cần xoá
+
+        if (deletedImages.length > 0) {
+            category.images = category.images.filter((img) => !deletedImages.includes(img));
+        }
+
+        // --- Thêm ảnh mới nếu có ---
+        const newImages = req.files?.map((file) => file.path) || [];
+
+        if (newImages.length > 0) {
+            // Sử dụng Promise.all để xử lý nhiều ảnh cùng một lúc
+            await Promise.all(
+                newImages.map((image) => {
+                    return category.images.push(image); // Đẩy ảnh vào mảng images
+                })
+            );
+        }
+
+        // --- Cập nhật tên và danh mục cha ---
+        category.name = name || category.name;
+        if (slug) category.slug = slug;
+        category.parentId = parentId || null;
+        category.parentCategoryName = parentCategoryName || '';
+
+        await category.save();
+
+        return res.status(200).json({
+            success: true,
+            message: 'Cập nhật danh mục thành công',
+            updatedCategory: category,
+        });
+    } catch (error) {
+        return res.status(500).json({
+            message: error.message || error,
+            success: false,
         });
     }
 };
@@ -391,54 +488,6 @@ const deleteMultipleCategories = async (req, res) => {
         return res.status(500).json({
             success: false,
             message: error,
-        });
-    }
-};
-
-const updateCategory = async (req, res) => {
-    try {
-        const category = await CategoryModel.findById(req.params.id);
-        if (!category) {
-            return res.status(400).json({
-                success: false,
-                message: 'Không tìm thấy danh mục',
-            });
-        }
-
-        const deletedImages = req.body.deletedImages || []; // array các URL cần xoá
-
-        if (deletedImages.length > 0) {
-            category.images = category.images.filter((img) => !deletedImages.includes(img));
-        }
-
-        // --- Thêm ảnh mới nếu có ---
-        const newImages = req.files?.map((file) => file.path) || [];
-
-        if (newImages.length > 0) {
-            // Sử dụng Promise.all để xử lý nhiều ảnh cùng một lúc
-            await Promise.all(
-                newImages.map((image) => {
-                    return category.images.push(image); // Đẩy ảnh vào mảng images
-                })
-            );
-        }
-
-        // --- Cập nhật tên và danh mục cha ---
-        category.name = req.body.name || category.name;
-        category.parentId = req.body.parentId || null;
-        category.parentCategoryName = req.body.parentCategoryName || '';
-
-        await category.save();
-
-        return res.status(200).json({
-            success: true,
-            message: 'Cập nhật danh mục thành công',
-            updatedCategory: category,
-        });
-    } catch (error) {
-        return res.status(500).json({
-            message: error.message || error,
-            success: false,
         });
     }
 };

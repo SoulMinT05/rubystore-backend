@@ -1,3 +1,6 @@
+import slugify from 'slugify';
+import { v2 as cloudinary } from 'cloudinary';
+
 import UserModel from '../models/UserModel.js';
 import ProductModel from '../models/ProductModel.js';
 import ProductRamModel from '../models/ProductRamModel.js';
@@ -5,8 +8,6 @@ import ProductWeightModel from '../models/ProductWeightModel.js';
 import ProductSizeModel from '../models/ProductSizeModel.js';
 
 import redisClient from '../config/redis.js';
-
-import { v2 as cloudinary } from 'cloudinary';
 
 cloudinary.config({
     cloud_name: process.env.CLOUDINARY_NAME,
@@ -38,7 +39,6 @@ const createProduct = async (req, res) => {
             productSize,
             productWeight,
         } = req.body;
-        const images = req.files; // nhiều ảnh
 
         if (!name || !description) {
             return res.status(400).json({
@@ -47,8 +47,24 @@ const createProduct = async (req, res) => {
             });
         }
 
-        let imageUrls = [];
+        const slug = slugify(name, {
+            lower: true,
+            strict: true,
+            locale: 'vi',
+        });
 
+        const existingSlug = await ProductModel.findOne({ slug });
+        if (existingSlug) {
+            return res.status(400).json({
+                success: false,
+                message: 'Tên sản phẩm đã tồn tại',
+            });
+        }
+
+        // Handle images
+        const images = req.files; // nhiều ảnh
+
+        let imageUrls = [];
         if (images && images.length > 0) {
             imageUrls = await Promise.all(
                 images?.map(async (img) => {
@@ -57,8 +73,11 @@ const createProduct = async (req, res) => {
                 })
             );
         }
+
+        // Create product
         const newProduct = await ProductModel.create({
             name,
+            slug,
             images: imageUrls,
             description,
             brand,
@@ -1271,6 +1290,7 @@ const updateProduct = async (req, res) => {
             productWeight,
         } = req.body;
 
+        // Price and Discount
         const numericOldPrice = Number(oldPrice);
         const numericDiscount = Number(discount);
         const numericPrice =
@@ -1280,32 +1300,58 @@ const updateProduct = async (req, res) => {
                 ? numericOldPrice - (numericOldPrice * numericDiscount) / 100
                 : numericOldPrice;
 
-        const product = await ProductModel.findByIdAndUpdate(
-            req.params.id,
-            {
-                name,
-                description,
-                brand,
-                price: numericPrice,
-                oldPrice: numericOldPrice,
-                categoryName,
-                categoryId,
-                category,
-                subCategoryId,
-                subCategoryName,
-                thirdSubCategoryId,
-                thirdSubCategoryName,
-                countInStock,
-                rating,
-                isFeatured,
-                isPublished,
-                discount: numericDiscount,
-                productRam,
-                productSize,
-                productWeight,
-            },
-            { new: true }
-        );
+        // Handle slug
+        let slug = undefined;
+        if (name) {
+            slug = slugify(name, {
+                lower: true,
+                strict: true,
+                locale: 'vi',
+            });
+            // Kiểm tra trùng slug nhưng loại trừ sản phẩm hiện tại
+            // Nếu update sản phẩm giữ nguyên name → slug giữ nguyên, không báo lỗi.
+            // Nếu đổi sang name mới mà trùng với sản phẩm khác → báo "Tên sản phẩm đã tồn tại".
+            // Nếu đổi sang name mới khác → generate slug mới và update DB.
+
+            const existingSlug = await ProductModel.findOne({
+                slug,
+                _id: { $ne: req.params.id },
+            });
+            if (existingSlug) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Tên sản phẩm đã tồn tại',
+                });
+            }
+        }
+
+        const updateData = {
+            name,
+            description,
+            brand,
+            price: numericPrice,
+            oldPrice: numericOldPrice,
+            categoryName,
+            categoryId,
+            category,
+            subCategoryId,
+            subCategoryName,
+            thirdSubCategoryId,
+            thirdSubCategoryName,
+            countInStock,
+            rating,
+            isFeatured,
+            isPublished,
+            discount: numericDiscount,
+            productRam,
+            productSize,
+            productWeight,
+        };
+        if (slug) {
+            updateData.slug = slug;
+        }
+
+        const product = await ProductModel.findByIdAndUpdate(req.params.id, updateData, { new: true });
 
         if (!product) {
             return res.status(400).json({

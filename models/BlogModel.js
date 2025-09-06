@@ -6,6 +6,9 @@ const blogSchema = mongoose.Schema(
             type: String,
             default: '',
         },
+        slug: {
+            type: String,
+        },
         images: [
             {
                 type: String,
@@ -18,7 +21,7 @@ const blogSchema = mongoose.Schema(
     },
     {
         timestamps: true,
-    },
+    }
 );
 
 const BlogModel = mongoose.model('blog', blogSchema);
