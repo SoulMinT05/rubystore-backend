@@ -10,6 +10,7 @@ import {
     updateBlog,
     getDetailsBlog,
     getBlogsFromAdmin,
+    getDetailsBlogBySlug,
 } from '../controllers/BlogController.js';
 
 const blogRouter = Router();
@@ -20,8 +21,9 @@ blogRouter.post('/create', verifyAccessToken, upload.array('images'), createBlog
 blogRouter.get('/all-blogs', getBlogsFromUser);
 blogRouter.get('/all-blogs-admin', [verifyAccessToken], getBlogsFromAdmin);
 
+blogRouter.get('/getDetailsBlogBySlug/:slug', verifyAccessToken, getDetailsBlogBySlug);
+blogRouter.get('/:id', verifyAccessToken, getDetailsBlog);
 blogRouter.put('/:id', verifyAccessToken, upload.array('images'), updateBlog);
 blogRouter.delete('/:id', verifyAccessToken, deleteBlog);
-blogRouter.get('/:id', verifyAccessToken, getDetailsBlog);
 
 export default blogRouter;

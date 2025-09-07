@@ -40,6 +40,7 @@ import {
     saveSearchHistory,
     getSearchProductsHistory,
     getDetailsProductFromAdmin,
+    getDetailsProductFromUserBySlug,
 } from '../controllers/ProductController.js';
 import { verifyAccessToken } from '../ middlewares/verifyToken.js';
 import upload from '../ middlewares/multer.js';
@@ -92,6 +93,8 @@ productRouter.post('/save-search-history', verifyAccessToken, saveSearchHistory)
 
 productRouter.delete('/deleteMultipleProduct', verifyAccessToken, deleteMultipleProduct);
 productRouter.get('/getDetailsProductFromAdmin/:id', getDetailsProductFromAdmin);
+
+productRouter.get('/getDetailsProductFromUserBySlug/:slug', getDetailsProductFromUserBySlug);
 productRouter.get('/:id', getDetailsProductFromUser);
 productRouter.delete('/:id', verifyAccessToken, deleteProduct);
 productRouter.put('/:id', verifyAccessToken, upload.array('images'), updateProduct);

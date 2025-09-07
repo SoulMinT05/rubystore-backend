@@ -1241,6 +1241,45 @@ const getDetailsProductFromUser = async (req, res) => {
     }
 };
 
+const getDetailsProductFromUserBySlug = async (req, res) => {
+    try {
+        const { slug } = req.params;
+        const cacheKey = `product:user:${slug}`;
+
+        // Kiểm tra cache
+        const cacheDetailsProduct = await redisClient.get(cacheKey);
+        if (cacheDetailsProduct) {
+            console.log('Lấy details product từ cache');
+            return res.status(200).json({
+                success: true,
+                product: JSON.parse(cacheDetailsProduct),
+            });
+        }
+
+        // Query DB
+        console.log('Lấy details product từ DB');
+        const product = await ProductModel.findOne({ slug }).populate('category');
+        if (!product) {
+            return res.status(400).json({
+                success: false,
+                message: 'Không tìm thấy sản phẩm với slug này',
+            });
+        }
+
+        redisClient.setex(cacheKey, process.env.DEFAULT_EXPIRATION, JSON.stringify(product));
+
+        return res.status(200).json({
+            success: true,
+            product,
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: error.message || error,
+        });
+    }
+};
+
 const removeImageFromCloudinary = async (req, res) => {
     try {
         const imgUrl = req.query.img;
@@ -1822,6 +1861,7 @@ export {
     deleteMultipleProductSize,
     getDetailsProductFromAdmin,
     getDetailsProductFromUser,
+    getDetailsProductFromUserBySlug,
     removeImageFromCloudinary,
     updateProduct,
     updateProductRam,

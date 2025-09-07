@@ -1649,6 +1649,33 @@ const getDetailsReview = async (req, res) => {
     }
 };
 
+const getReviewsBySlugProduct = async (req, res) => {
+    try {
+        const { slug } = req.params;
+        if (!slug) {
+            return res.status(400).json({ message: 'ID sản phẩm không hợp lệ.' });
+        }
+
+        const product = await ProductModel.findOne({ slug }).populate({
+            path: 'review',
+            populate: [
+                {
+                    path: 'userId',
+                    select: 'name avatar',
+                },
+                {
+                    path: 'replies.userId', // ✅ thêm dòng này để populate người reply
+                    select: 'name avatar',
+                },
+            ],
+        });
+        res.status(200).json({ success: true, product });
+    } catch (error) {
+        console.error('Lỗi khi lấy danh sách review:', error.message);
+        res.status(500).json({ message: 'Lỗi server khi lấy đánh giá.' });
+    }
+};
+
 const getReviews = async (req, res) => {
     try {
         const reviews = await ReviewModel.find()
@@ -2056,6 +2083,7 @@ export {
     deleteReview,
     deleteReplyFromReview,
     getDetailsReview,
+    getReviewsBySlugProduct,
     getReviews,
     // FOR ADMIN
     getUsersFromAdmin,

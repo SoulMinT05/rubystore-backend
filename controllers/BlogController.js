@@ -145,9 +145,8 @@ const updateBlog = async (req, res) => {
 
 const getBlogsFromUser = async (req, res) => {
     try {
-        const { excludeId } = req.query;
-
-        const filter = excludeId ? { _id: { $ne: excludeId } } : {};
+        const { excludeSlug } = req.query;
+        const filter = excludeSlug ? { slug: { $ne: excludeSlug } } : {};
 
         const blogs = await BlogModel.find(filter);
 
@@ -233,6 +232,29 @@ const getDetailsBlog = async (req, res) => {
             return res.status(400).json({
                 success: false,
                 message: 'Không tìm thấy bài viết với id này',
+            });
+        }
+        return res.status(200).json({
+            success: true,
+            blog,
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: error.message || error,
+        });
+    }
+};
+
+const getDetailsBlogBySlug = async (req, res) => {
+    try {
+        const { slug } = req.params;
+        const blog = await BlogModel.findOne({ slug });
+
+        if (!blog) {
+            return res.status(400).json({
+                success: false,
+                message: 'Không tìm thấy bài viết với slug này',
             });
         }
         return res.status(200).json({
@@ -334,6 +356,7 @@ export {
     getBlogsFromUser,
     getBlogsFromAdmin,
     getDetailsBlog,
+    getDetailsBlogBySlug,
     removeImageFromCloudinary,
     deleteBlog,
     deleteMultipleBlog,
