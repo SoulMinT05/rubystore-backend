@@ -56,7 +56,6 @@ productRouter.get('/all-products-third-sub-category-id/:id', getProductsByThirdS
 productRouter.delete('/ram/deleteMultipleProductRam', verifyAccessToken, deleteMultipleProductRam);
 productRouter.delete('/ram/:id', verifyAccessToken, deleteProductRam);
 productRouter.put('/ram/:id', verifyAccessToken, updateProductRam);
-
 productRouter.delete('/weight/deleteMultipleProductWeight', verifyAccessToken, deleteMultipleProductWeight);
 productRouter.delete('/weight/:id', verifyAccessToken, deleteProductWeight);
 productRouter.put('/weight/:id', verifyAccessToken, updateProductWeight);

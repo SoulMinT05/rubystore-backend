@@ -23,6 +23,7 @@ const createCategory = async (req, res) => {
             });
         }
 
+        // Slug
         const slug = slugify(name, {
             lower: true,
             strict: true,
@@ -40,6 +41,14 @@ const createCategory = async (req, res) => {
             });
         }
 
+        // Parent slug
+        const parentCategorySlug = parentCategoryName
+            ? slugify(parentCategoryName, {
+                  lower: true,
+                  strict: true,
+                  locale: 'vi',
+              })
+            : '';
         // Images
         let imageUrls = [];
 
@@ -56,6 +65,7 @@ const createCategory = async (req, res) => {
             name,
             slug,
             parentCategoryName: parentCategoryName || '',
+            parentCategorySlug,
             parentId: parentId || null,
             images: imageUrls,
         });
@@ -86,6 +96,7 @@ const updateCategory = async (req, res) => {
 
         const { name, parentId, parentCategoryName } = req.body;
 
+        // Slug
         let slug = undefined;
         if (name) {
             slug = slugify(name, {
@@ -111,6 +122,16 @@ const updateCategory = async (req, res) => {
                 });
             }
         }
+
+        // Parent slug
+        const parentCategorySlug = parentCategoryName
+            ? slugify(parentCategoryName, {
+                  lower: true,
+                  strict: true,
+                  locale: 'vi',
+              })
+            : '';
+
         // Images
         const deletedImages = req.body.deletedImages || []; // array các URL cần xoá
 
@@ -135,6 +156,7 @@ const updateCategory = async (req, res) => {
         if (slug) category.slug = slug;
         category.parentId = parentId || null;
         category.parentCategoryName = parentCategoryName || '';
+        category.parentCategorySlug = parentCategorySlug;
 
         await category.save();
 

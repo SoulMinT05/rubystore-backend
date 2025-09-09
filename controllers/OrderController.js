@@ -370,6 +370,7 @@ const getAllOrdersFromUser = async (req, res) => {
 
         const orders = await OrderModel.find(filter)
             .populate('userId', 'name email phoneNumber')
+            .populate('selectedCartItems.product', 'name slug')
             .sort({ createdAt: -1 });
         return res.status(200).json({
             success: true,

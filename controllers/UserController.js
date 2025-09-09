@@ -1332,7 +1332,7 @@ const removeFromWishlist = async (req, res) => {
 const getAllWishlists = async (req, res) => {
     try {
         const userId = req.user._id;
-        const user = await UserModel.findById(userId);
+        const user = await UserModel.findById(userId).populate('wishlist.product', 'name slug');
 
         return res.status(200).json({
             success: true,

@@ -47,4 +47,42 @@ const updateSlug = async () => {
     }
 };
 
-updateSlug();
+const updateParentCategorySlug = async () => {
+    try {
+        await mongoose.connect(MONGO_URI);
+        console.log('✅ Connected to MongoDB');
+
+        // Tìm tất cả category
+        const categories = await CategoryModel.find({});
+        console.log(`🔍 Found ${categories.length} categories`);
+
+        for (let category of categories) {
+            if (category.parentCategoryName) {
+                const cleanName = removeVietnameseTones(category.parentCategoryName);
+                const newParentSlug = slugify(cleanName, { lower: true, strict: true });
+
+                if (category.parentCategorySlug !== newParentSlug) {
+                    category.parentCategorySlug = newParentSlug;
+                    await category.save();
+                    console.log(`✔ Updated parentCategorySlug for: ${category.name} → ${newParentSlug}`);
+                }
+            } else {
+                // Nếu không có parentCategoryName thì để rỗng
+                if (category.parentCategorySlug !== '') {
+                    category.parentCategorySlug = '';
+                    await category.save();
+                    console.log(`✔ Cleared parentCategorySlug for: ${category.name}`);
+                }
+            }
+        }
+
+        console.log('🎉 All parentCategorySlug updated successfully!');
+        process.exit(0);
+    } catch (error) {
+        console.error('❌ Error updating parentCategorySlug:', error);
+        process.exit(1);
+    }
+};
+
+// updateSlug();
+updateParentCategorySlug();

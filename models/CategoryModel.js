@@ -18,6 +18,9 @@ const categorySchema = mongoose.Schema(
         parentCategoryName: {
             type: String,
         },
+        parentCategorySlug: {
+            type: String,
+        },
         parentId: {
             type: mongoose.Schema.ObjectId,
             ref: 'category',
